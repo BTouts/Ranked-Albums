@@ -1,6 +1,31 @@
 import { supabase } from "./supabaseClient"
 import type { Album } from "../types/Album"
 
+/**
+ * Attempts to find cover art for albums that have no cover_url (typically MusicBrainz albums).
+ * Runs in the background — never blocks the UI.
+ * Only tries MusicBrainz UUIDs; iTunes numeric IDs aren't in Cover Art Archive.
+ * If art is found, updates the shared albums table so all users benefit.
+ */
+async function tryBackfillCoverArt(albumId: string): Promise<void> {
+  const isMusicBrainzId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(albumId)
+  if (!isMusicBrainzId) return
+
+  try {
+    const url = `https://coverartarchive.org/release-group/${albumId}/front-500`
+    const res = await fetch(url, { method: "HEAD" })
+    if (!res.ok) return
+    // Store it so every user who loads this album gets the URL instantly
+    await supabase
+      .from("albums")
+      .update({ cover_url: url })
+      .eq("id", albumId)
+      .is("cover_url", null)
+  } catch {
+    // Cover art is nice-to-have — fail silently
+  }
+}
+
 export async function fetchUserRankings(userId: string): Promise<Album[]> {
   const { data, error } = await supabase
     .from("rankings")
@@ -21,7 +46,7 @@ export async function fetchUserRankings(userId: string): Promise<Album[]> {
 
   if (!data) return []
 
-  return data.map((r: any) => {
+  const result: Album[] = data.map((r: any) => {
     const album = r.albums
     return {
       id: r.album_id,
@@ -35,6 +60,12 @@ export async function fetchUserRankings(userId: string): Promise<Album[]> {
       previousOpponents: [],
     }
   })
+
+  // Background: try to fill in cover art for albums that are missing it.
+  // Caps at 5 per load to avoid hammering Cover Art Archive.
+  result.filter(a => !a.coverUrl).slice(0, 5).forEach(a => tryBackfillCoverArt(a.id))
+
+  return result
 }
 
 export async function saveRanking(userId: string, album: Album) {
@@ -55,6 +86,9 @@ export async function saveRanking(userId: string, album: Album) {
 
   if (albumError) console.error("Album upsert error:", albumError)
 
+  // Background: if no cover URL was stored, try to find one from Cover Art Archive
+  if (!album.coverUrl) tryBackfillCoverArt(album.id)
+
   const { error: rankingError } = await supabase
     .from("rankings")
     .upsert(
@@ -69,4 +103,13 @@ export async function saveRanking(userId: string, album: Album) {
     )
 
   if (rankingError) console.error("Ranking upsert error:", rankingError)
+}
+
+export async function deleteRanking(userId: string, albumId: string) {
+  const { error } = await supabase
+    .from("rankings")
+    .delete()
+    .eq("user_id", userId)
+    .eq("album_id", albumId)
+  if (error) throw error
 }

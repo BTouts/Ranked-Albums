@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import type { Album } from "../types/Album"
 import AlbumTile from "./AlbumTile"
 
@@ -12,8 +12,22 @@ type Props = {
 }
 
 export default function Comparison({ newAlbum, existingAlbum, onBetter, onWorse, onTie, onCancel }: Props) {
+  const [coversReady, setCoversReady] = useState(false)
+
+  useEffect(() => {
+    setCoversReady(false)
+    const urls = [newAlbum.coverUrl, existingAlbum.coverUrl].filter(Boolean) as string[]
+    if (urls.length === 0) { setCoversReady(true); return }
+    let loaded = 0
+    const onDone = () => { if (++loaded === urls.length) setCoversReady(true) }
+    urls.forEach(url => { const img = new Image(); img.onload = onDone; img.onerror = onDone; img.src = url })
+    const fallback = setTimeout(() => setCoversReady(true), 5000)
+    return () => clearTimeout(fallback)
+  }, [newAlbum.id, existingAlbum.id, newAlbum.coverUrl, existingAlbum.coverUrl])
+
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
+      if (!coversReady) return
       if (e.key === "ArrowLeft")  { e.preventDefault(); onBetter() }
       if (e.key === "ArrowRight") { e.preventDefault(); onWorse() }
       if (e.key === " ")          { e.preventDefault(); onTie() }
@@ -21,7 +35,7 @@ export default function Comparison({ newAlbum, existingAlbum, onBetter, onWorse,
     }
     window.addEventListener("keydown", handleKey)
     return () => window.removeEventListener("keydown", handleKey)
-  }, [onBetter, onWorse, onTie, onCancel])
+  }, [onBetter, onWorse, onTie, onCancel, coversReady])
 
   const remaining = newAlbum.placementMatches
 
@@ -40,10 +54,11 @@ export default function Comparison({ newAlbum, existingAlbum, onBetter, onWorse,
       <div className="flex items-start gap-3 sm:gap-6 w-full max-w-md sm:max-w-2xl">
         {/* Left album */}
         <div className="flex-1 flex flex-col gap-2">
-          <AlbumTile album={newAlbum} onClick={onBetter} />
+          <AlbumTile album={newAlbum} onClick={coversReady ? onBetter : undefined} />
           <button
             onClick={onBetter}
-            className="w-full py-3 rounded-xl text-base sm:text-xl font-light text-cream bg-white/5 border border-white/10 hover:bg-steel/60 hover:border-steel active:scale-95 transition-all"
+            disabled={!coversReady}
+            className="w-full py-3 rounded-xl text-base sm:text-xl font-light text-cream bg-white/5 border border-white/10 hover:bg-steel/60 hover:border-steel active:scale-95 transition-all disabled:opacity-40 disabled:cursor-wait"
           >
             ←
           </button>
@@ -56,10 +71,11 @@ export default function Comparison({ newAlbum, existingAlbum, onBetter, onWorse,
 
         {/* Right album */}
         <div className="flex-1 flex flex-col gap-2">
-          <AlbumTile album={existingAlbum} onClick={onWorse} />
+          <AlbumTile album={existingAlbum} onClick={coversReady ? onWorse : undefined} />
           <button
             onClick={onWorse}
-            className="w-full py-3 rounded-xl text-base sm:text-xl font-light text-cream bg-white/5 border border-white/10 hover:bg-steel/60 hover:border-steel active:scale-95 transition-all"
+            disabled={!coversReady}
+            className="w-full py-3 rounded-xl text-base sm:text-xl font-light text-cream bg-white/5 border border-white/10 hover:bg-steel/60 hover:border-steel active:scale-95 transition-all disabled:opacity-40 disabled:cursor-wait"
           >
             →
           </button>
@@ -70,7 +86,8 @@ export default function Comparison({ newAlbum, existingAlbum, onBetter, onWorse,
       <div className="flex items-center gap-5">
         <button
           onClick={onTie}
-          className="px-5 py-2 text-sm text-taupe border border-white/10 rounded-lg hover:text-cream hover:border-taupe active:scale-95 transition-all"
+          disabled={!coversReady}
+          className="px-5 py-2 text-sm text-taupe border border-white/10 rounded-lg hover:text-cream hover:border-taupe active:scale-95 transition-all disabled:opacity-40 disabled:cursor-wait"
         >
           Tie
         </button>

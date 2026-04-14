@@ -6,9 +6,10 @@ type Props = {
   albums: Album[]
   loading?: boolean
   onPlayMatches: (album: Album) => void
+  onDelete?: (album: Album) => void
 }
 
-export default function RankingPage({ albums, loading, onPlayMatches }: Props) {
+export default function RankingPage({ albums, loading, onPlayMatches, onDelete }: Props) {
   const [decadeFilter, setDecadeFilter] = useState("All")
   const [yearFilter, setYearFilter] = useState("All")
 
@@ -110,7 +111,7 @@ export default function RankingPage({ albums, loading, onPlayMatches }: Props) {
         </div>
       )}
 
-      <RankingList albums={filtered} onPlayMatches={onPlayMatches} />
+      <RankingList albums={filtered} onPlayMatches={onPlayMatches} onDelete={onDelete} />
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import type { Album } from "./types/Album"
 import { supabase } from "./services/supabaseClient"
 import { searchAlbums } from "./services/musicbrainz"
-import { fetchUserRankings, saveRanking } from "./services/rankingsApi"
+import { fetchUserRankings, saveRanking, deleteRanking } from "./services/rankingsApi"
 import { updateRatings } from "./services/elo"
 import { pickOpponent } from "./services/matchmaking"
 
@@ -131,6 +131,12 @@ function App() {
     }
   }
 
+  const deleteAlbum = async (album: Album) => {
+    if (!user) return
+    await deleteRanking(user.id, album.id)
+    setRanked(prev => prev.filter(a => a.id !== album.id))
+  }
+
   const cancelComparison = () => {
     // If no matches were played yet, remove the album we just added to ranked
     if (challenger && challenger.comparisons === 0 && returnPage === "search") {
@@ -206,7 +212,7 @@ function App() {
       {/* Content — key triggers fade-in animation on every page switch */}
       <main key={page} className="page-transition max-w-screen-xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {page === "rankings" && (
-          <RankingPage albums={ranked} loading={loadingRankings} onPlayMatches={startRefinement} />
+          <RankingPage albums={ranked} loading={loadingRankings} onPlayMatches={startRefinement} onDelete={deleteAlbum} />
         )}
         {page === "search" && (
           <SearchPage
