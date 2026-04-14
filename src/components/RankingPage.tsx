@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react"
 import type { Album } from "../types/Album"
 import RankingList from "./RankingList"
 
@@ -8,6 +9,45 @@ type Props = {
 }
 
 export default function RankingPage({ albums, loading, onPlayMatches }: Props) {
+  const [decadeFilter, setDecadeFilter] = useState("All")
+  const [yearFilter, setYearFilter] = useState("All")
+
+  const decades = useMemo(() => {
+    const set = new Set<string>()
+    albums.forEach(a => {
+      if (a.year) set.add(`${Math.floor(parseInt(a.year) / 10) * 10}s`)
+    })
+    return Array.from(set).sort().reverse()
+  }, [albums])
+
+  // Years within the selected decade
+  const yearsInDecade = useMemo(() => {
+    if (decadeFilter === "All") return []
+    const start = parseInt(decadeFilter)
+    const set = new Set<string>()
+    albums.forEach(a => {
+      if (a.year) {
+        const y = parseInt(a.year)
+        if (y >= start && y < start + 10) set.add(a.year)
+      }
+    })
+    return Array.from(set).sort().reverse()
+  }, [albums, decadeFilter])
+
+  const handleDecadeClick = (d: string) => {
+    setDecadeFilter(d)
+    setYearFilter("All")
+  }
+
+  const filtered = useMemo(() => {
+    if (decadeFilter === "All") return albums
+    if (yearFilter !== "All") return albums.filter(a => a.year === yearFilter)
+    return albums.filter(a => {
+      if (!a.year) return false
+      return `${Math.floor(parseInt(a.year) / 10) * 10}s` === decadeFilter
+    })
+  }, [albums, decadeFilter, yearFilter])
+
   if (loading) {
     return (
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-px bg-surface">
@@ -27,5 +67,50 @@ export default function RankingPage({ albums, loading, onPlayMatches }: Props) {
     )
   }
 
-  return <RankingList albums={albums} onPlayMatches={onPlayMatches} />
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Decade filter */}
+      {decades.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {["All", ...decades].map(d => (
+            <button
+              key={d}
+              onClick={() => handleDecadeClick(d)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                decadeFilter === d
+                  ? "bg-steel text-white"
+                  : "text-taupe/60 border border-white/10 hover:text-cream hover:border-white/20"
+              }`}
+            >
+              {d}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Year filter — shown when a decade is selected and has multiple years */}
+      {decadeFilter !== "All" && yearsInDecade.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {[`All ${decadeFilter}`, ...yearsInDecade].map((y, i) => {
+            const value = i === 0 ? "All" : y
+            return (
+              <button
+                key={y}
+                onClick={() => setYearFilter(value)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  yearFilter === value
+                    ? "bg-powder/20 text-powder border border-powder/30"
+                    : "text-taupe/40 border border-white/8 hover:text-cream hover:border-white/20"
+                }`}
+              >
+                {y}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      <RankingList albums={filtered} onPlayMatches={onPlayMatches} />
+    </div>
+  )
 }

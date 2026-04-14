@@ -14,6 +14,14 @@ function confidence(comparisons: number) {
   return Math.round(Math.min(comparisons / 30, 1) * 100)
 }
 
+function streamingUrls(album: Album) {
+  const q = encodeURIComponent(`${album.artist} ${album.title}`)
+  return {
+    appleMusic: `https://music.apple.com/search?term=${q}`,
+    spotify: `https://open.spotify.com/search/${q}`,
+  }
+}
+
 export default function AlbumTile({ album, rank, onClick, onPlayMatches }: Props) {
   const [modalOpen, setModalOpen] = useState(false)
   const isTouch = useIsTouchDevice()
@@ -23,6 +31,8 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches }: Props
 
   const coverUrl = album.coverUrl
     ?? (isKnownMissing(album.id) ? null : `https://coverartarchive.org/release-group/${album.id}/front-250`)
+
+  const { appleMusic, spotify } = streamingUrls(album)
 
   const handleTileClick = () => {
     if (useModal) setModalOpen(true)
@@ -64,12 +74,21 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches }: Props
               <p className="text-taupe text-xs mt-0.5 truncate">{album.artist}</p>
               {album.year && <p className="text-taupe/60 text-xs">{album.year}</p>}
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               {album.comparisons > 0 && (
                 <p className="text-powder text-xs">
                   {Math.round(album.rating)} ELO · {confidence(album.comparisons)}% confidence
                 </p>
               )}
+              <div className="flex gap-2 text-[10px] text-taupe/50">
+                <a href={appleMusic} target="_blank" rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="hover:text-cream transition-colors">Apple Music</a>
+                <span>·</span>
+                <a href={spotify} target="_blank" rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="hover:text-cream transition-colors">Spotify</a>
+              </div>
               {onPlayMatches && (
                 <button
                   onClick={e => { e.stopPropagation(); onPlayMatches() }}
@@ -83,14 +102,14 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches }: Props
         )}
       </div>
 
-      {/* Bottom-sheet modal — mobile only, for ranked tiles */}
+      {/* Centered modal — mobile only, for ranked tiles */}
       {useModal && modalOpen && (
         <div
-          className="fixed inset-0 bg-black/70 z-50 flex items-end justify-center"
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6 backdrop-enter"
           onClick={() => setModalOpen(false)}
         >
           <div
-            className="bg-surface2 rounded-t-2xl w-full max-w-sm p-5 flex flex-col gap-4"
+            className="bg-surface2 rounded-2xl w-full max-w-sm p-5 flex flex-col gap-4 modal-enter"
             onClick={e => e.stopPropagation()}
           >
             {/* Album info row */}
@@ -112,7 +131,7 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches }: Props
               </div>
             </div>
 
-            {/* Actions */}
+            {/* Play matches */}
             {onPlayMatches && (
               <button
                 onClick={() => { setModalOpen(false); onPlayMatches() }}
@@ -121,9 +140,22 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches }: Props
                 Play matches
               </button>
             )}
+
+            {/* Streaming links */}
+            <div className="grid grid-cols-2 gap-2">
+              <a href={appleMusic} target="_blank" rel="noopener noreferrer"
+                className="py-2.5 rounded-xl border border-white/10 text-xs text-taupe text-center hover:text-cream hover:border-white/20 active:scale-95 transition-all">
+                Apple Music
+              </a>
+              <a href={spotify} target="_blank" rel="noopener noreferrer"
+                className="py-2.5 rounded-xl border border-white/10 text-xs text-taupe text-center hover:text-cream hover:border-white/20 active:scale-95 transition-all">
+                Spotify
+              </a>
+            </div>
+
             <button
               onClick={() => setModalOpen(false)}
-              className="w-full py-2 text-xs text-taupe/40"
+              className="w-full py-1.5 text-xs text-taupe/40"
             >
               Close
             </button>

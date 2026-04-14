@@ -26,7 +26,7 @@ export default function Comparison({ newAlbum, existingAlbum, onBetter, onWorse,
   const remaining = newAlbum.placementMatches
 
   return (
-    <div className="min-h-screen bg-ink flex flex-col items-center justify-center px-4 py-10 gap-6 font-sans">
+    <div className="min-h-screen bg-ink flex flex-col items-center justify-center px-4 py-10 gap-6 font-sans comparison-enter">
       {/* Header */}
       <div className="text-center">
         <h2 className="text-cream text-xl sm:text-2xl font-bold">Which do you prefer?</h2>

@@ -10,9 +10,10 @@ import RankingPage from "./components/RankingPage"
 import SearchPage from "./components/SearchPage"
 import Comparison from "./components/Comparison"
 import LoginForm from "./components/LoginForm"
+import ProfilePage from "./components/ProfilePage"
 import type { User } from "@supabase/supabase-js"
 
-type Page = "rankings" | "search"
+type Page = "rankings" | "search" | "profile"
 
 function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -148,7 +149,7 @@ function App() {
           <h1 className="text-4xl font-bold text-cream tracking-tight">Album Ranker</h1>
           <p className="text-taupe mt-2 text-sm">Rank your music, one comparison at a time.</p>
         </div>
-        <LoginForm onLogin={setUser} />
+        <LoginForm onLogin={(u) => { setUser(u); setPage("rankings") }} />
       </div>
     )
   }
@@ -192,10 +193,11 @@ function App() {
               Search
             </button>
             <button
-              onClick={async () => { await supabase.auth.signOut(); setUser(null) }}
-              className="ml-2 sm:ml-4 text-xs text-taupe/50 hover:text-taupe transition-colors"
+              onClick={() => setPage("profile")}
+              className="ml-2 sm:ml-4 w-9 h-9 rounded-full bg-steel/20 text-steel text-xs font-bold flex items-center justify-center hover:bg-steel/30 transition-colors shrink-0"
+              title="Profile"
             >
-              Sign out
+              {user.email?.[0].toUpperCase()}
             </button>
           </nav>
         </div>
@@ -212,6 +214,13 @@ function App() {
             onQueryChange={setQuery}
             results={results}
             onCompare={startComparison}
+          />
+        )}
+        {page === "profile" && (
+          <ProfilePage
+            user={user}
+            onBack={() => setPage("rankings")}
+            onSignOut={async () => { await supabase.auth.signOut(); setUser(null) }}
           />
         )}
       </main>
