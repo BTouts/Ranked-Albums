@@ -88,3 +88,38 @@ export async function searchAlbums(query: string): Promise<Album[]> {
     return []
   }
 }
+
+/**
+ * Fallback search via MusicBrainz for albums not in the iTunes catalog.
+ * MusicBrainz has a much broader database (indie, underground, international)
+ * but no popularity signal and no reliable artwork. Cover art falls back to
+ * Cover Art Archive using the MusicBrainz release-group UUID.
+ */
+export async function searchAlbumsFallback(query: string): Promise<Album[]> {
+  try {
+    const params = new URLSearchParams({ query, fmt: "json", limit: "25" })
+    const res = await fetch(
+      `https://musicbrainz.org/ws/2/release-group?${params}`,
+      { headers: { "User-Agent": "AlbumRanker/1.0 (album-ranker-app)" } }
+    )
+    const data = await res.json()
+
+    return (data["release-groups"] ?? [])
+      .filter((rg: any) => rg["primary-type"] === "Album")
+      .slice(0, 20)
+      .map((rg: any): Album => ({
+        id: rg.id,
+        title: rg.title,
+        artist: rg["artist-credit"]?.[0]?.artist?.name ?? "Unknown",
+        year: rg["first-release-date"]?.slice(0, 4),
+        coverUrl: undefined,  // will use Cover Art Archive fallback in AlbumTile
+        rating: 0,
+        comparisons: 0,
+        placementMatches: 0,
+        previousOpponents: [],
+      }))
+  } catch (err) {
+    console.error("MusicBrainz fallback search failed:", err)
+    return []
+  }
+}

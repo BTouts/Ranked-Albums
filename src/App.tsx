@@ -59,7 +59,9 @@ function App() {
   const startComparison = (album: Album) => {
     if (ranked.find(a => a.id === album.id)) return
     setReturnPage("search")
-    const newAlbum: Album = { ...album, rating: 1000, comparisons: 0, placementMatches: 6, previousOpponents: [] }
+    // Cap placement matches to number of available opponents (can't play more than you have)
+    const matchCount = Math.min(6, ranked.length)
+    const newAlbum: Album = { ...album, rating: 1000, comparisons: 0, placementMatches: matchCount, previousOpponents: [] }
     if (ranked.length === 0) {
       setRanked([newAlbum])
       if (user) saveRanking(user.id, newAlbum)
@@ -68,6 +70,9 @@ function App() {
     }
     const firstOpponent = pickOpponent(newAlbum, ranked)
     if (!firstOpponent) return
+    // Add to ranked immediately so it shows up on My Albums during placement
+    setRanked(prev => [...prev, newAlbum])
+    if (user) saveRanking(user.id, newAlbum)
     setChallenger(newAlbum)
     setOpponent(firstOpponent)
   }
@@ -75,7 +80,8 @@ function App() {
   // Re-rank an already-placed album
   const startRefinement = (album: Album) => {
     setReturnPage("rankings")
-    const refreshed: Album = { ...album, placementMatches: 5, previousOpponents: [] }
+    const matchCount = Math.min(5, ranked.filter(a => a.id !== album.id).length)
+    const refreshed: Album = { ...album, placementMatches: matchCount, previousOpponents: [] }
     const firstOpponent = pickOpponent(refreshed, ranked.filter(a => a.id !== album.id))
     if (!firstOpponent) return
     setChallenger(refreshed)
@@ -94,15 +100,19 @@ function App() {
     }
     const updatedOpponent = { ...opponent, rating: newB, comparisons: opponent.comparisons + 1 }
 
-    let updatedRanked = ranked.map(a => a.id === opponent.id ? updatedOpponent : a)
+    // Update both albums in ranked (challenger is already in the list)
+    let updatedRanked = ranked.map(a =>
+      a.id === updatedChallenger.id ? updatedChallenger :
+      a.id === updatedOpponent.id  ? updatedOpponent :
+      a
+    )
 
     if (updatedChallenger.placementMatches <= 0) {
-      updatedRanked = [...updatedRanked.filter(a => a.id !== updatedChallenger.id), updatedChallenger]
-        .sort((a, b) => b.rating - a.rating)
+      updatedRanked = updatedRanked.sort((a, b) => b.rating - a.rating)
       setRanked(updatedRanked)
       setChallenger(null)
       setOpponent(null)
-      setPage("rankings")  // always land on My Albums after ranking completes
+      setPage("rankings")
       if (user) {
         await saveRanking(user.id, updatedChallenger)
         await saveRanking(user.id, updatedOpponent)
@@ -111,7 +121,7 @@ function App() {
     }
 
     const nextOpponent = pickOpponent(updatedChallenger, updatedRanked)
-    setRanked([...updatedRanked])
+    setRanked(updatedRanked)
     setChallenger(updatedChallenger)
     setOpponent(nextOpponent)
     if (user) {
@@ -121,9 +131,13 @@ function App() {
   }
 
   const cancelComparison = () => {
+    // If no matches were played yet, remove the album we just added to ranked
+    if (challenger && challenger.comparisons === 0 && returnPage === "search") {
+      setRanked(prev => prev.filter(a => a.id !== challenger.id))
+    }
     setChallenger(null)
     setOpponent(null)
-    setPage(returnPage)  // back to wherever they came from
+    setPage(returnPage)
   }
 
   // --- Login screen ---
@@ -162,7 +176,7 @@ function App() {
           <h1 className="text-sm font-bold text-cream tracking-wide shrink-0">Album Ranker</h1>
           <nav className="flex items-center gap-1">
             <button
-              onClick={() => setPage("rankings")}
+              onClick={() => { setPage("rankings"); setQuery(""); setResults([]) }}
               className={`px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 page === "rankings" ? "bg-steel text-white" : "text-taupe hover:text-cream"
               }`}
