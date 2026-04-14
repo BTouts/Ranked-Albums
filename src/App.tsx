@@ -138,9 +138,10 @@ function App() {
   }
 
   const cancelComparison = () => {
-    // If no matches were played yet, remove the album we just added to ranked
-    if (challenger && challenger.comparisons === 0 && returnPage === "search") {
+    // Always remove and delete an album that was added from search but never fully placed
+    if (challenger && returnPage === "search") {
       setRanked(prev => prev.filter(a => a.id !== challenger.id))
+      if (user) deleteRanking(user.id, challenger.id)
     }
     setChallenger(null)
     setOpponent(null)

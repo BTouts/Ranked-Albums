@@ -13,12 +13,13 @@ async function tryBackfillCoverArt(albumId: string): Promise<void> {
 
   try {
     const url = `https://coverartarchive.org/release-group/${albumId}/front-500`
+    // Follow redirects so we store the final archive.org URL — no redirect overhead on future loads
     const res = await fetch(url, { method: "HEAD" })
     if (!res.ok) return
-    // Store it so every user who loads this album gets the URL instantly
+    const resolvedUrl = res.url || url
     await supabase
       .from("albums")
-      .update({ cover_url: url })
+      .update({ cover_url: resolvedUrl })
       .eq("id", albumId)
       .is("cover_url", null)
   } catch {

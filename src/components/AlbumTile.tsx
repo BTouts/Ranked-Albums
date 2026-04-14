@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useRef } from "react"
 import type { Album } from "../types/Album"
 import { isKnownMissing, setCoverArtResult } from "../utils/coverArtCache"
 import { useIsTouchDevice } from "../utils/useIsTouchDevice"
@@ -26,12 +26,16 @@ function streamingUrls(album: Album) {
 export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelete }: Props) {
   const [modalOpen, setModalOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [imgFailed, setImgFailed] = useState(false)
   const isTouch = useIsTouchDevice()
+  const imgRef = useRef<HTMLImageElement>(null)
 
   const useModal = isTouch && !!onPlayMatches && !onClick
 
   const coverUrl = album.coverUrl
     ?? (isKnownMissing(album.id) ? null : `https://coverartarchive.org/release-group/${album.id}/front-250`)
+
+  const showFallback = !coverUrl || imgFailed
 
   const { appleMusic, spotify } = streamingUrls(album)
 
@@ -64,17 +68,26 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelet
         className="relative group aspect-square overflow-hidden bg-surface2 cursor-pointer"
       >
         {/* Cover art */}
-        {coverUrl && (
+        {coverUrl && !imgFailed && (
           <img
+            ref={imgRef}
             src={coverUrl}
             alt={album.title}
             loading="lazy"
             className="w-full h-full object-cover block"
-            onError={e => {
-              e.currentTarget.style.display = "none"
+            onError={() => {
+              setImgFailed(true)
               if (!album.coverUrl) setCoverArtResult(album.id, false)
             }}
           />
+        )}
+
+        {/* Text fallback when no art available */}
+        {showFallback && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-2 gap-1 bg-surface2">
+            <p className="text-cream/70 text-[10px] font-semibold text-center leading-tight line-clamp-3">{album.title}</p>
+            <p className="text-taupe/50 text-[9px] text-center truncate w-full">{album.artist}</p>
+          </div>
         )}
 
         {/* Rank badge — always visible */}
