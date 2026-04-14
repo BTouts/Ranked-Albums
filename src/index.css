@@ -1,0 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* Palette */
+  --color-steel:    #81A6C6;
+  --color-powder:   #AACDDC;
+  --color-cream:    #F3E3D0;
+  --color-taupe:    #D2C4B4;
+
+  /* Dark surfaces */
+  --color-base:     #0c0c0c;
+  --color-surface:  #141414;
+  --color-surface2: #1c1c1c;
+  --color-ink:      #2C2C2C;
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+/* Page transition — triggered by key change on main content */
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-transition {
+  animation: page-in 0.18s ease-out;
+}
+
+/* Remove iOS blue tap flash on interactive elements */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
