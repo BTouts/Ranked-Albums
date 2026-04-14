@@ -229,7 +229,7 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelet
                 {onDelete && (
                   <button
                     onClick={handleDelete}
-                    className="w-full py-2.5 rounded-xl border border-red-500/20 text-xs text-red-400/60 hover:text-red-400 hover:border-red-500/40 transition-colors"
+                    className="w-full py-2.5 rounded-xl border border-red-500/40 text-xs text-red-400 hover:bg-red-500/10 transition-colors"
                   >
                     Remove album
                   </button>
