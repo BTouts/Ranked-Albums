@@ -6,9 +6,10 @@ type Props = {
   user: User
   onSignOut: () => void
   onBack: () => void
+  onAvatarChange?: (url: string | null) => void
 }
 
-export default function ProfilePage({ user, onSignOut, onBack }: Props) {
+export default function ProfilePage({ user, onSignOut, onBack, onAvatarChange }: Props) {
   const [displayName, setDisplayName] = useState("")
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [newPassword, setNewPassword] = useState("")
@@ -65,6 +66,7 @@ export default function ProfilePage({ user, onSignOut, onBack }: Props) {
       const url = await uploadAvatar(user.id, file)
       await upsertProfile(user.id, { avatarUrl: url })
       setAvatarUrl(url)
+      onAvatarChange?.(url)
     } catch (err: any) {
       console.error("Avatar upload error:", err)
       const msg = err?.message ?? err?.error_description ?? "Unknown error"

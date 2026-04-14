@@ -3,6 +3,7 @@ import type { Album } from "./types/Album"
 import { supabase } from "./services/supabaseClient"
 import { searchAlbums } from "./services/musicbrainz"
 import { fetchUserRankings, saveRanking, deleteRanking } from "./services/rankingsApi"
+import { fetchProfile } from "./services/profilesApi"
 import { updateRatings } from "./services/elo"
 import { pickOpponent } from "./services/matchmaking"
 
@@ -25,6 +26,7 @@ function App() {
   const [loadingRankings, setLoadingRankings] = useState(true)
   const [challenger, setChallenger] = useState<Album | null>(null)
   const [opponent, setOpponent] = useState<Album | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   // H1: guard against double-invocation from fast keyboard input
   const resolving = useRef(false)
@@ -40,13 +42,14 @@ function App() {
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  // Load rankings
+  // Load rankings + profile
   useEffect(() => {
     if (!user) return
     setLoadingRankings(true)
     fetchUserRankings(user.id)
       .then(setRanked)
       .finally(() => setLoadingRankings(false))
+    fetchProfile(user.id).then(p => setAvatarUrl(p?.avatarUrl ?? null))
   }, [user])
 
   // H4: AbortController cancels in-flight search when query changes
@@ -218,10 +221,13 @@ function App() {
             </button>
             <button
               onClick={() => setPage("profile")}
-              className="ml-2 sm:ml-4 w-9 h-9 rounded-full bg-steel/20 text-steel text-xs font-bold flex items-center justify-center hover:bg-steel/30 transition-colors shrink-0"
+              className="ml-2 sm:ml-4 w-9 h-9 rounded-full bg-steel/20 overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-steel/50 transition-all shrink-0"
               title="Profile"
             >
-              {user.email?.[0].toUpperCase()}
+              {avatarUrl
+                ? <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                : <span className="text-steel text-xs font-bold">{user.email?.[0].toUpperCase()}</span>
+              }
             </button>
           </nav>
         </div>
@@ -245,6 +251,7 @@ function App() {
             user={user}
             onBack={() => setPage("rankings")}
             onSignOut={async () => { await supabase.auth.signOut(); setUser(null) }}
+            onAvatarChange={setAvatarUrl}
           />
         )}
       </main>
