@@ -1,5 +1,7 @@
+import { useState } from "react"
 import type { Album } from "../types/Album"
 import { isKnownMissing, setCoverArtResult } from "../utils/coverArtCache"
+import { useIsTouchDevice } from "../utils/useIsTouchDevice"
 
 type Props = {
   album: Album
@@ -13,14 +15,31 @@ function confidence(comparisons: number) {
 }
 
 export default function AlbumTile({ album, rank, onClick, onPlayMatches }: Props) {
-  // Prefer the iTunes CDN URL stored on the album. Fall back to Cover Art Archive
-  // for any albums added before the iTunes migration.
+  const [overlayOpen, setOverlayOpen] = useState(false)
+  const isTouch = useIsTouchDevice()
+
+  // On touch devices, ranked tiles (onPlayMatches, no onClick) use a tap-to-toggle overlay
+  // instead of hover — otherwise the Play Matches button is unreachable on mobile.
+  const stickyOverlay = isTouch && !!onPlayMatches && !onClick
+
+  const handleTileClick = () => {
+    if (stickyOverlay) {
+      setOverlayOpen(o => !o)
+    } else {
+      onClick?.()
+    }
+  }
+
   const coverUrl = album.coverUrl
     ?? (isKnownMissing(album.id) ? null : `https://coverartarchive.org/release-group/${album.id}/front-250`)
 
+  const overlayClass = stickyOverlay
+    ? `absolute inset-0 bg-black/80 transition-opacity duration-150 flex flex-col justify-between p-3 z-20 ${overlayOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`
+    : "absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex flex-col justify-between p-3 z-20"
+
   return (
     <div
-      onClick={onClick}
+      onClick={handleTileClick}
       className="relative group aspect-square overflow-hidden bg-surface2 cursor-pointer"
     >
       {/* Cover art */}
@@ -44,8 +63,8 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches }: Props
         </div>
       )}
 
-      {/* Hover overlay */}
-      <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex flex-col justify-between p-3 z-20">
+      {/* Overlay — hover on desktop, tap-toggle on mobile */}
+      <div className={overlayClass}>
         <div>
           <p className="text-cream font-semibold text-sm leading-snug line-clamp-2">{album.title}</p>
           <p className="text-taupe text-xs mt-0.5 truncate">{album.artist}</p>
@@ -61,7 +80,7 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches }: Props
           {onPlayMatches && (
             <button
               onClick={e => { e.stopPropagation(); onPlayMatches() }}
-              className="w-full py-1.5 text-xs font-medium rounded bg-steel/80 text-white hover:bg-steel transition-colors"
+              className="w-full py-1.5 text-xs font-medium rounded bg-steel/80 text-white hover:bg-steel active:scale-95 transition-all"
             >
               Play matches
             </button>

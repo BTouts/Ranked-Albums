@@ -1,5 +1,7 @@
+import { useState, useEffect } from "react"
 import type { Album } from "../types/Album"
 import AlbumTile from "./AlbumTile"
+import { searchAlbumsFallback } from "../services/musicbrainz"
 
 type Props = {
   query: string
@@ -9,6 +11,27 @@ type Props = {
 }
 
 export default function SearchPage({ query, onQueryChange, results, onCompare }: Props) {
+  const [mbResults, setMbResults] = useState<Album[]>([])
+  const [mbLoading, setMbLoading] = useState(false)
+  const [mbSearched, setMbSearched] = useState(false)
+
+  // Reset fallback state whenever the query changes
+  useEffect(() => {
+    setMbResults([])
+    setMbSearched(false)
+  }, [query])
+
+  const handleFallbackSearch = async () => {
+    setMbLoading(true)
+    setMbSearched(true)
+    const res = await searchAlbumsFallback(query)
+    setMbResults(res)
+    setMbLoading(false)
+  }
+
+  const hasItunesResults = query.length >= 2 && results.length > 0
+  const showFallbackButton = query.length >= 2 && !mbSearched
+
   return (
     <div className="flex flex-col gap-8">
       {/* Search bar — centered hero */}
@@ -49,7 +72,7 @@ export default function SearchPage({ query, onQueryChange, results, onCompare }:
         </div>
       </div>
 
-      {/* Results */}
+      {/* iTunes results */}
       {query.length < 2 ? (
         <p className="text-taupe/30 text-sm text-center mt-8">Start typing to search…</p>
       ) : results.length === 0 ? (
@@ -59,6 +82,40 @@ export default function SearchPage({ query, onQueryChange, results, onCompare }:
           {results.map(album => (
             <AlbumTile key={album.id} album={album} onClick={() => onCompare(album)} />
           ))}
+        </div>
+      )}
+
+      {/* Fallback search trigger */}
+      {showFallbackButton && (
+        <div className="flex justify-center">
+          <button
+            onClick={handleFallbackSearch}
+            className="text-xs text-taupe/50 hover:text-taupe border border-white/8 hover:border-white/20 px-4 py-2 rounded-full transition-colors"
+          >
+            {hasItunesResults ? "Not finding it? Search extended catalog" : "Try extended catalog search"}
+          </button>
+        </div>
+      )}
+
+      {/* MusicBrainz fallback results */}
+      {mbSearched && (
+        <div className="flex flex-col gap-3">
+          <p className="text-taupe/40 text-xs tracking-widest uppercase text-center">Extended results</p>
+          {mbLoading ? (
+            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-px bg-surface2">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="aspect-square bg-surface2 animate-pulse" />
+              ))}
+            </div>
+          ) : mbResults.length === 0 ? (
+            <p className="text-taupe/30 text-sm text-center">No extended results found.</p>
+          ) : (
+            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-px bg-surface2">
+              {mbResults.map(album => (
+                <AlbumTile key={album.id} album={album} onClick={() => onCompare(album)} />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
