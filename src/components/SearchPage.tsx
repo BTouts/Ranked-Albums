@@ -24,9 +24,12 @@ export default function SearchPage({ query, onQueryChange, results, onCompare }:
   const handleFallbackSearch = async () => {
     setMbLoading(true)
     setMbSearched(true)
-    const res = await searchAlbumsFallback(query)
-    setMbResults(res)
-    setMbLoading(false)
+    try {
+      const res = await searchAlbumsFallback(query)
+      setMbResults(res)
+    } finally {
+      setMbLoading(false)
+    }
   }
 
   const hasItunesResults = query.length >= 2 && results.length > 0

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import type { Album } from "./types/Album"
 import { supabase } from "./services/supabaseClient"
 import { searchAlbums } from "./services/musicbrainz"
@@ -26,6 +26,9 @@ function App() {
   const [challenger, setChallenger] = useState<Album | null>(null)
   const [opponent, setOpponent] = useState<Album | null>(null)
 
+  // H1: guard against double-invocation from fast keyboard input
+  const resolving = useRef(false)
+
   // Auth
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -46,32 +49,31 @@ function App() {
       .finally(() => setLoadingRankings(false))
   }, [user])
 
-  // Search albums
+  // H4: AbortController cancels in-flight search when query changes
   useEffect(() => {
+    if (query.length < 2) { setResults([]); return }
+    const controller = new AbortController()
     const timer = setTimeout(async () => {
-      if (query.length < 2) return setResults([])
-      const albums = await searchAlbums(query)
-      setResults(albums)
+      const albums = await searchAlbums(query, controller.signal)
+      if (!controller.signal.aborted) setResults(albums)
     }, 300)
-    return () => clearTimeout(timer)
+    return () => { clearTimeout(timer); controller.abort() }
   }, [query])
 
   // Add a new album — kicks off placement matches
-  const startComparison = (album: Album) => {
+  const startComparison = async (album: Album) => {
     if (ranked.find(a => a.id === album.id)) return
     setReturnPage("search")
-    // Cap placement matches to number of available opponents (can't play more than you have)
     const matchCount = Math.min(6, ranked.length)
     const newAlbum: Album = { ...album, rating: 1000, comparisons: 0, placementMatches: matchCount, previousOpponents: [] }
     if (ranked.length === 0) {
       setRanked([newAlbum])
-      if (user) saveRanking(user.id, newAlbum)
+      if (user) await saveRanking(user.id, newAlbum) // L4: await so first album is persisted
       setPage("rankings")
       return
     }
     const firstOpponent = pickOpponent(newAlbum, ranked)
     if (!firstOpponent) return
-    // Add to ranked immediately so it shows up on My Albums during placement
     setRanked(prev => [...prev, newAlbum])
     if (user) saveRanking(user.id, newAlbum)
     setChallenger(newAlbum)
@@ -90,44 +92,59 @@ function App() {
   }
 
   const resolveMatch = async (score: number) => {
-    if (!challenger || !opponent) return
-    const [newA, newB] = updateRatings(challenger.rating, opponent.rating, score, challenger.comparisons, opponent.comparisons)
-    const updatedChallenger = {
-      ...challenger,
-      rating: newA,
-      comparisons: challenger.comparisons + 1,
-      placementMatches: challenger.placementMatches - 1,
-      previousOpponents: [...challenger.previousOpponents, opponent.id],
-    }
-    const updatedOpponent = { ...opponent, rating: newB, comparisons: opponent.comparisons + 1 }
+    // H1: prevent stale closure data corruption from fast double-input
+    if (resolving.current) return
+    resolving.current = true
+    try {
+      if (!challenger || !opponent) return
+      const [newA, newB] = updateRatings(challenger.rating, opponent.rating, score, challenger.comparisons, opponent.comparisons)
+      const updatedChallenger = {
+        ...challenger,
+        rating: newA,
+        comparisons: challenger.comparisons + 1,
+        placementMatches: challenger.placementMatches - 1,
+        previousOpponents: [...challenger.previousOpponents, opponent.id],
+      }
+      const updatedOpponent = { ...opponent, rating: newB, comparisons: opponent.comparisons + 1 }
 
-    // Update both albums in ranked (challenger is already in the list)
-    let updatedRanked = ranked.map(a =>
-      a.id === updatedChallenger.id ? updatedChallenger :
-      a.id === updatedOpponent.id  ? updatedOpponent :
-      a
-    )
+      let updatedRanked = ranked.map(a =>
+        a.id === updatedChallenger.id ? updatedChallenger :
+        a.id === updatedOpponent.id  ? updatedOpponent :
+        a
+      )
 
-    if (updatedChallenger.placementMatches <= 0) {
-      updatedRanked = updatedRanked.sort((a, b) => b.rating - a.rating)
+      if (updatedChallenger.placementMatches <= 0) {
+        updatedRanked = updatedRanked.sort((a, b) => b.rating - a.rating)
+        setRanked(updatedRanked)
+        setChallenger(null)
+        setOpponent(null)
+        setPage("rankings")
+        if (user) {
+          await saveRanking(user.id, updatedChallenger)
+          await saveRanking(user.id, updatedOpponent)
+        }
+        return
+      }
+
+      const nextOpponent = pickOpponent(updatedChallenger, updatedRanked)
       setRanked(updatedRanked)
-      setChallenger(null)
-      setOpponent(null)
-      setPage("rankings")
+      setChallenger(updatedChallenger)
+
+      // H2: if no eligible opponent remains, end placement early rather than leaving zombie state
+      if (!nextOpponent) {
+        setOpponent(null)
+        setChallenger(null)
+        setPage(returnPage)
+      } else {
+        setOpponent(nextOpponent)
+      }
+
       if (user) {
         await saveRanking(user.id, updatedChallenger)
         await saveRanking(user.id, updatedOpponent)
       }
-      return
-    }
-
-    const nextOpponent = pickOpponent(updatedChallenger, updatedRanked)
-    setRanked(updatedRanked)
-    setChallenger(updatedChallenger)
-    setOpponent(nextOpponent)
-    if (user) {
-      await saveRanking(user.id, updatedChallenger)
-      await saveRanking(user.id, updatedOpponent)
+    } finally {
+      resolving.current = false
     }
   }
 

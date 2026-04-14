@@ -28,11 +28,11 @@ type ItunesResult = {
   trackCount?: number
 }
 
-async function itunesFetch(term: string, attribute?: string): Promise<ItunesResult[]> {
+async function itunesFetch(term: string, attribute?: string, signal?: AbortSignal): Promise<ItunesResult[]> {
   const params = new URLSearchParams({ term, entity: "album", limit: "50" })
   if (attribute) params.set("attribute", attribute)
 
-  const res = await fetch(`https://itunes.apple.com/search?${params}`)
+  const res = await fetch(`https://itunes.apple.com/search?${params}`, { signal })
   const data = await res.json()
 
   return (data.results ?? []).filter(
@@ -60,14 +60,14 @@ function toAlbum(item: ItunesResult): Album {
   }
 }
 
-export async function searchAlbums(query: string): Promise<Album[]> {
+export async function searchAlbums(query: string, signal?: AbortSignal): Promise<Album[]> {
   try {
     // Run both searches in parallel:
     //   general  — best for album title queries ("good kid maad city", "abbey road")
     //   byArtist — best for artist name queries ("kendrick lamar", "radiohead")
     const [general, byArtist] = await Promise.all([
-      itunesFetch(query),
-      itunesFetch(query, "artistTerm"),
+      itunesFetch(query, undefined, signal),
+      itunesFetch(query, "artistTerm", signal),
     ])
 
     // Merge: general results take priority (already ranked by relevance).
@@ -84,6 +84,7 @@ export async function searchAlbums(query: string): Promise<Album[]> {
 
     return merged.slice(0, 25).map(toAlbum)
   } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") return []
     console.error("iTunes search failed:", err)
     return []
   }

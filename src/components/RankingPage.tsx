@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import type { Album } from "../types/Album"
 import RankingList from "./RankingList"
 
@@ -39,6 +39,10 @@ export default function RankingPage({ albums, loading, onPlayMatches, onDelete }
     setDecadeFilter(d)
     setYearFilter("All")
   }
+
+  // Global rank map — preserves actual rank position when a filter is active
+  const rankMap = useMemo(() => new Map(albums.map((a, i) => [a.id, i + 1])), [albums])
+  const getRank = useCallback((albumId: string) => rankMap.get(albumId) ?? 0, [rankMap])
 
   const filtered = useMemo(() => {
     if (decadeFilter === "All") return albums
@@ -111,7 +115,7 @@ export default function RankingPage({ albums, loading, onPlayMatches, onDelete }
         </div>
       )}
 
-      <RankingList albums={filtered} onPlayMatches={onPlayMatches} onDelete={onDelete} />
+      <RankingList albums={filtered} getRank={getRank} onPlayMatches={onPlayMatches} onDelete={onDelete} />
     </div>
   )
 }

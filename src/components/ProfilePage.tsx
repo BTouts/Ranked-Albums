@@ -55,13 +55,20 @@ export default function ProfilePage({ user, onSignOut, onBack }: Props) {
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+    if (!allowed.includes(file.type)) {
+      setNameMsg({ ok: false, text: "Please upload a JPEG, PNG, WebP, or GIF." })
+      return
+    }
     setUploadingAvatar(true)
     try {
       const url = await uploadAvatar(user.id, file)
       await upsertProfile(user.id, { avatarUrl: url })
       setAvatarUrl(url)
-    } catch {
-      // If avatars bucket doesn't exist, silently skip
+    } catch (err: any) {
+      console.error("Avatar upload error:", err)
+      const msg = err?.message ?? err?.error_description ?? "Unknown error"
+      setNameMsg({ ok: false, text: `Avatar upload failed: ${msg}` })
     } finally {
       setUploadingAvatar(false)
     }
