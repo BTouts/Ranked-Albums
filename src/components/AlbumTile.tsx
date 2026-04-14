@@ -178,7 +178,7 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelet
               </div>
             ) : (
               <>
-                {/* Album info row */}
+                {/* Header row: album info + X close button */}
                 <div className="flex gap-4 items-start">
                   <div className="w-20 h-20 rounded-lg overflow-hidden bg-surface shrink-0">
                     {coverUrl && (
@@ -195,6 +195,15 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelet
                       </p>
                     )}
                   </div>
+                  <button
+                    onClick={() => setModalOpen(false)}
+                    className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-white/8 text-taupe/50 hover:text-cream hover:bg-white/15 transition-colors -mt-0.5 -mr-0.5"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <line x1="1" y1="1" x2="11" y2="11" />
+                      <line x1="11" y1="1" x2="1" y2="11" />
+                    </svg>
+                  </button>
                 </div>
 
                 {onPlayMatches && (
@@ -217,22 +226,14 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelet
                   </a>
                 </div>
 
-                <div className="flex gap-2">
+                {onDelete && (
                   <button
-                    onClick={() => setModalOpen(false)}
-                    className="flex-1 py-2 text-xs text-taupe/40"
+                    onClick={handleDelete}
+                    className="w-full py-2.5 rounded-xl border border-red-500/20 text-xs text-red-400/60 hover:text-red-400 hover:border-red-500/40 transition-colors"
                   >
-                    Close
+                    Remove album
                   </button>
-                  {onDelete && (
-                    <button
-                      onClick={handleDelete}
-                      className="py-2 px-4 text-xs text-red-400/60 hover:text-red-400 transition-colors"
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
+                )}
               </>
             )}
           </div>
