@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import type { Album } from "./types/Album"
 import { supabase } from "./services/supabaseClient"
 import { searchAlbums } from "./services/musicbrainz"
-import { fetchUserRankings, saveRanking } from "./services/rankingsApi"
+import { fetchUserRankings, saveRanking, deleteRanking } from "./services/rankingsApi"
+import { fetchProfile } from "./services/profilesApi"
 import { updateRatings } from "./services/elo"
 import { pickOpponent } from "./services/matchmaking"
 
@@ -10,9 +11,10 @@ import RankingPage from "./components/RankingPage"
 import SearchPage from "./components/SearchPage"
 import Comparison from "./components/Comparison"
 import LoginForm from "./components/LoginForm"
+import ProfilePage from "./components/ProfilePage"
 import type { User } from "@supabase/supabase-js"
 
-type Page = "rankings" | "search"
+type Page = "rankings" | "search" | "profile"
 
 function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -24,6 +26,10 @@ function App() {
   const [loadingRankings, setLoadingRankings] = useState(true)
   const [challenger, setChallenger] = useState<Album | null>(null)
   const [opponent, setOpponent] = useState<Album | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+
+  // H1: guard against double-invocation from fast keyboard input
+  const resolving = useRef(false)
 
   // Auth
   useEffect(() => {
@@ -36,41 +42,41 @@ function App() {
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  // Load rankings
+  // Load rankings + profile
   useEffect(() => {
     if (!user) return
     setLoadingRankings(true)
     fetchUserRankings(user.id)
       .then(setRanked)
       .finally(() => setLoadingRankings(false))
+    fetchProfile(user.id).then(p => setAvatarUrl(p?.avatarUrl ?? null))
   }, [user])
 
-  // Search albums
+  // H4: AbortController cancels in-flight search when query changes
   useEffect(() => {
+    if (query.length < 2) { setResults([]); return }
+    const controller = new AbortController()
     const timer = setTimeout(async () => {
-      if (query.length < 2) return setResults([])
-      const albums = await searchAlbums(query)
-      setResults(albums)
+      const albums = await searchAlbums(query, controller.signal)
+      if (!controller.signal.aborted) setResults(albums)
     }, 300)
-    return () => clearTimeout(timer)
+    return () => { clearTimeout(timer); controller.abort() }
   }, [query])
 
   // Add a new album — kicks off placement matches
-  const startComparison = (album: Album) => {
+  const startComparison = async (album: Album) => {
     if (ranked.find(a => a.id === album.id)) return
     setReturnPage("search")
-    // Cap placement matches to number of available opponents (can't play more than you have)
     const matchCount = Math.min(6, ranked.length)
     const newAlbum: Album = { ...album, rating: 1000, comparisons: 0, placementMatches: matchCount, previousOpponents: [] }
     if (ranked.length === 0) {
       setRanked([newAlbum])
-      if (user) saveRanking(user.id, newAlbum)
+      if (user) await saveRanking(user.id, newAlbum) // L4: await so first album is persisted
       setPage("rankings")
       return
     }
     const firstOpponent = pickOpponent(newAlbum, ranked)
     if (!firstOpponent) return
-    // Add to ranked immediately so it shows up on My Albums during placement
     setRanked(prev => [...prev, newAlbum])
     if (user) saveRanking(user.id, newAlbum)
     setChallenger(newAlbum)
@@ -89,51 +95,73 @@ function App() {
   }
 
   const resolveMatch = async (score: number) => {
-    if (!challenger || !opponent) return
-    const [newA, newB] = updateRatings(challenger.rating, opponent.rating, score, challenger.comparisons, opponent.comparisons)
-    const updatedChallenger = {
-      ...challenger,
-      rating: newA,
-      comparisons: challenger.comparisons + 1,
-      placementMatches: challenger.placementMatches - 1,
-      previousOpponents: [...challenger.previousOpponents, opponent.id],
-    }
-    const updatedOpponent = { ...opponent, rating: newB, comparisons: opponent.comparisons + 1 }
+    // H1: prevent stale closure data corruption from fast double-input
+    if (resolving.current) return
+    resolving.current = true
+    try {
+      if (!challenger || !opponent) return
+      const [newA, newB] = updateRatings(challenger.rating, opponent.rating, score, challenger.comparisons, opponent.comparisons)
+      const updatedChallenger = {
+        ...challenger,
+        rating: newA,
+        comparisons: challenger.comparisons + 1,
+        placementMatches: challenger.placementMatches - 1,
+        previousOpponents: [...challenger.previousOpponents, opponent.id],
+      }
+      const updatedOpponent = { ...opponent, rating: newB, comparisons: opponent.comparisons + 1 }
 
-    // Update both albums in ranked (challenger is already in the list)
-    let updatedRanked = ranked.map(a =>
-      a.id === updatedChallenger.id ? updatedChallenger :
-      a.id === updatedOpponent.id  ? updatedOpponent :
-      a
-    )
+      let updatedRanked = ranked.map(a =>
+        a.id === updatedChallenger.id ? updatedChallenger :
+        a.id === updatedOpponent.id  ? updatedOpponent :
+        a
+      )
 
-    if (updatedChallenger.placementMatches <= 0) {
-      updatedRanked = updatedRanked.sort((a, b) => b.rating - a.rating)
+      if (updatedChallenger.placementMatches <= 0) {
+        updatedRanked = updatedRanked.sort((a, b) => b.rating - a.rating)
+        setRanked(updatedRanked)
+        setChallenger(null)
+        setOpponent(null)
+        setPage("rankings")
+        if (user) {
+          await saveRanking(user.id, updatedChallenger)
+          await saveRanking(user.id, updatedOpponent)
+        }
+        return
+      }
+
+      const nextOpponent = pickOpponent(updatedChallenger, updatedRanked)
       setRanked(updatedRanked)
-      setChallenger(null)
-      setOpponent(null)
-      setPage("rankings")
+      setChallenger(updatedChallenger)
+
+      // H2: if no eligible opponent remains, end placement early rather than leaving zombie state
+      if (!nextOpponent) {
+        setOpponent(null)
+        setChallenger(null)
+        setPage(returnPage)
+      } else {
+        setOpponent(nextOpponent)
+      }
+
       if (user) {
         await saveRanking(user.id, updatedChallenger)
         await saveRanking(user.id, updatedOpponent)
       }
-      return
-    }
-
-    const nextOpponent = pickOpponent(updatedChallenger, updatedRanked)
-    setRanked(updatedRanked)
-    setChallenger(updatedChallenger)
-    setOpponent(nextOpponent)
-    if (user) {
-      await saveRanking(user.id, updatedChallenger)
-      await saveRanking(user.id, updatedOpponent)
+    } finally {
+      resolving.current = false
     }
   }
 
+  const deleteAlbum = async (album: Album) => {
+    if (!user) return
+    await deleteRanking(user.id, album.id)
+    setRanked(prev => prev.filter(a => a.id !== album.id))
+  }
+
   const cancelComparison = () => {
-    // If no matches were played yet, remove the album we just added to ranked
-    if (challenger && challenger.comparisons === 0 && returnPage === "search") {
+    // Always remove and delete an album that was added from search but never fully placed
+    if (challenger && returnPage === "search") {
       setRanked(prev => prev.filter(a => a.id !== challenger.id))
+      if (user) deleteRanking(user.id, challenger.id)
     }
     setChallenger(null)
     setOpponent(null)
@@ -148,7 +176,7 @@ function App() {
           <h1 className="text-4xl font-bold text-cream tracking-tight">Album Ranker</h1>
           <p className="text-taupe mt-2 text-sm">Rank your music, one comparison at a time.</p>
         </div>
-        <LoginForm onLogin={setUser} />
+        <LoginForm onLogin={(u) => { setUser(u); setPage("rankings") }} />
       </div>
     )
   }
@@ -192,10 +220,14 @@ function App() {
               Search
             </button>
             <button
-              onClick={async () => { await supabase.auth.signOut(); setUser(null) }}
-              className="ml-2 sm:ml-4 text-xs text-taupe/50 hover:text-taupe transition-colors"
+              onClick={() => setPage("profile")}
+              className="ml-2 sm:ml-4 w-9 h-9 rounded-full bg-steel/20 overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-steel/50 transition-all shrink-0"
+              title="Profile"
             >
-              Sign out
+              {avatarUrl
+                ? <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                : <span className="text-steel text-xs font-bold">{user.email?.[0].toUpperCase()}</span>
+              }
             </button>
           </nav>
         </div>
@@ -204,7 +236,7 @@ function App() {
       {/* Content — key triggers fade-in animation on every page switch */}
       <main key={page} className="page-transition max-w-screen-xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {page === "rankings" && (
-          <RankingPage albums={ranked} loading={loadingRankings} onPlayMatches={startRefinement} />
+          <RankingPage albums={ranked} loading={loadingRankings} onPlayMatches={startRefinement} onDelete={deleteAlbum} />
         )}
         {page === "search" && (
           <SearchPage
@@ -212,6 +244,14 @@ function App() {
             onQueryChange={setQuery}
             results={results}
             onCompare={startComparison}
+          />
+        )}
+        {page === "profile" && (
+          <ProfilePage
+            user={user}
+            onBack={() => setPage("rankings")}
+            onSignOut={async () => { await supabase.auth.signOut(); setUser(null) }}
+            onAvatarChange={setAvatarUrl}
           />
         )}
       </main>

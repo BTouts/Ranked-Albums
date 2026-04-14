@@ -1,3 +1,15 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+
+# Environment variables (contains Supabase keys — never commit)
+.env
+.env.*
+*.local
+
 # Logs
 logs
 *.log
@@ -6,24 +18,19 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+
+# Claude Code
 CLAUDE.md
-node_modules
-dist
-dist-ssr
-*.local
-
-# Environment variables (contains Supabase keys — never commit)
-.env
-.env.*
-
-# Claude Code project-local settings (personal overrides)
 .claude/settings.local.json
+review-notes.md
 
-# Editor directories and files
+# macOS
+.DS_Store
+
+# Editor
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj

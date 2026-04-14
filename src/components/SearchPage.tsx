@@ -24,9 +24,12 @@ export default function SearchPage({ query, onQueryChange, results, onCompare }:
   const handleFallbackSearch = async () => {
     setMbLoading(true)
     setMbSearched(true)
-    const res = await searchAlbumsFallback(query)
-    setMbResults(res)
-    setMbLoading(false)
+    try {
+      const res = await searchAlbumsFallback(query)
+      setMbResults(res)
+    } finally {
+      setMbLoading(false)
+    }
   }
 
   const hasItunesResults = query.length >= 2 && results.length > 0
@@ -52,7 +55,6 @@ export default function SearchPage({ query, onQueryChange, results, onCompare }:
             value={query}
             onChange={e => onQueryChange(e.target.value)}
             placeholder="Kendrick Lamar, Abbey Road, Radiohead…"
-            autoFocus
             className="w-full pl-13 pr-12 py-4 rounded-2xl bg-surface2 border border-white/8 text-cream text-lg placeholder-taupe/40 focus:outline-none focus:border-steel/60 focus:bg-surface transition-colors shadow-lg"
           />
 
