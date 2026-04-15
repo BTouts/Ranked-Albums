@@ -24,6 +24,11 @@ CLAUDE.md
 .claude/settings.local.json
 review-notes.md
 
+# Playwright
+playwright-report/
+test-results/
+/e2e/.auth/
+
 # macOS
 .DS_Store
 
