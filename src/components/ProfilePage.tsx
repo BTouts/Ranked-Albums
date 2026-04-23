@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import type { User } from "@supabase/supabase-js"
 import { fetchProfile, upsertProfile, uploadAvatar, updatePassword } from "../services/profilesApi"
+import ReportBugButton from "./ReportBugButton"
 
 type Props = {
   user: User
@@ -200,13 +201,14 @@ export default function ProfilePage({ user, onSignOut, onBack, onAvatarChange }:
       </div>
 
       {/* Sign out */}
-      <div className="pt-4 border-t border-white/5">
+      <div className="pt-4 border-t border-white/5 flex items-center justify-between">
         <button
           onClick={onSignOut}
           className="text-sm text-taupe/50 hover:text-taupe transition-colors"
         >
           Sign out
         </button>
+        <ReportBugButton />
       </div>
     </div>
   )
