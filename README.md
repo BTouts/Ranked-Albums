@@ -29,6 +29,7 @@ Rankings are powered by an ELO rating system — the same algorithm used in ches
 | Album search | iTunes Search API + MusicBrainz fallback |
 | Cover art | iTunes CDN (600×600), Cover Art Archive fallback |
 | Hosting | Vercel |
+| API | Supabase Edge Functions (Deno) |
 | Tests | Vitest |
 
 ---
@@ -168,3 +169,131 @@ src/
 - Opponent selection: closest ELO rating, never a repeat from the current session
 - K-factor: **48** (< 10 comparisons) → **32** (< 30) → **16** (≥ 30, stable)
 - `previousOpponents` is session-only and resets on page reload
+
+---
+
+## Public API
+
+Album Ranker exposes a read-only REST API built on [Supabase Edge Functions](https://supabase.com/docs/guides/functions). It uses standard Bearer token auth and returns JSON.
+
+**Base URL:** `https://xeiygyromiabfiroykba.supabase.co/functions/v1`
+
+### Authentication
+
+The API uses a two-step token flow:
+
+**Step 1 — Exchange credentials for an access token**
+
+```http
+POST https://xeiygyromiabfiroykba.supabase.co/auth/v1/token?grant_type=password
+Content-Type: application/json
+
+{
+  "email": "your@email.com",
+  "password": "yourpassword"
+}
+```
+
+Copy the `access_token` from the response. Tokens expire after 1 hour.
+
+**Step 2 — Call the API with the token**
+
+```http
+GET /functions/v1/top-albums
+Authorization: Bearer <access_token>
+```
+
+---
+
+### `GET /functions/v1/top-albums`
+
+Returns a user's albums sorted by ELO rating, highest first.
+
+#### Query parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | integer | `10` | Number of albums to return (1–50) |
+| `user_id` | UUID | *(authenticated user)* | View a specific user's list. Omit to get your own. |
+
+#### Example request
+
+```bash
+curl -X GET \
+  "https://xeiygyromiabfiroykba.supabase.co/functions/v1/top-albums?limit=5" \
+  -H "Authorization: Bearer <your_access_token>"
+```
+
+#### Example response
+
+```json
+{
+  "user_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "total_returned": 5,
+  "limit": 5,
+  "albums": [
+    {
+      "rank": 1,
+      "id": "1440935467",
+      "title": "Rumours",
+      "artist": "Fleetwood Mac",
+      "year": "1977",
+      "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/.../600x600bb.jpg",
+      "rating": 1247,
+      "comparisons": 18,
+      "placement_complete": true
+    },
+    {
+      "rank": 2,
+      "id": "1474915965",
+      "title": "Purple Rain",
+      "artist": "Prince",
+      "year": "1984",
+      "cover_url": "https://is1-ssl.mzstatic.com/image/thumb/.../600x600bb.jpg",
+      "rating": 1198,
+      "comparisons": 12,
+      "placement_complete": true
+    }
+  ],
+  "generated_at": "2026-04-22T17:00:00.000Z"
+}
+```
+
+#### Response fields
+
+| Field | Description |
+|-------|-------------|
+| `rank` | Position in the list (1 = highest rated) |
+| `id` | Album ID (iTunes numeric ID or MusicBrainz UUID) |
+| `rating` | ELO rating. Starts at 1000; higher means better ranked |
+| `comparisons` | Total head-to-head matches completed for this album |
+| `placement_complete` | `true` once the album has finished its initial 6 placement matches |
+
+#### Error responses
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| `401` | `{ "error": "Missing or invalid Authorization header..." }` | No token, or token is expired |
+| `405` | `{ "error": "Method not allowed. Use GET." }` | Wrong HTTP method |
+| `500` | `{ "error": "Failed to fetch rankings.", "detail": "..." }` | Database error |
+
+---
+
+### Using with Postman
+
+1. Create a new collection — **Album Ranker API**
+2. Add a collection variable: `token` (leave value empty for now)
+3. **Auth request** — Add a POST request:
+   - URL: `https://xeiygyromiabfiroykba.supabase.co/auth/v1/token?grant_type=password`
+   - Body (raw JSON): `{ "email": "you@example.com", "password": "yourpassword" }`
+   - Tests tab: `pm.collectionVariables.set("token", pm.response.json().access_token);`
+4. **Albums request** — Add a GET request:
+   - URL: `https://xeiygyromiabfiroykba.supabase.co/functions/v1/top-albums?limit=10`
+   - Authorization tab: Type = **Bearer Token**, Token = `{{token}}`
+5. Run the auth request first — the token saves automatically, then fire the albums request.
+
+---
+
+### Implementation
+
+The API is implemented as a Supabase Edge Function (Deno/TypeScript) at `supabase/functions/top-albums/index.ts`. It validates the JWT server-side, queries the `rankings` and `albums` tables with a join, and returns the result shaped as the response above. CORS headers are included so the endpoint is callable from browsers as well.
