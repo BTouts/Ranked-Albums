@@ -7,9 +7,10 @@ type Props = {
   loading?: boolean
   onPlayMatches: (album: Album) => void
   onDelete?: (album: Album) => void
+  onStartRankedPlay?: () => void
 }
 
-export default function RankingPage({ albums, loading, onPlayMatches, onDelete }: Props) {
+export default function RankingPage({ albums, loading, onPlayMatches, onDelete, onStartRankedPlay }: Props) {
   const [decadeFilter, setDecadeFilter] = useState("All")
   const [yearFilter, setYearFilter] = useState("All")
 
@@ -74,6 +75,21 @@ export default function RankingPage({ albums, loading, onPlayMatches, onDelete }
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Ranked Play button — visible when there are 2+ albums to compare */}
+      {albums.length >= 2 && onStartRankedPlay && (
+        <div className="flex justify-end">
+          <button
+            onClick={onStartRankedPlay}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-steel/15 border border-steel/25 text-steel text-sm font-medium hover:bg-steel/25 hover:border-steel/40 active:scale-95 transition-all"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="3,1 13,7 3,13" fill="currentColor" stroke="none" />
+            </svg>
+            Ranked Play
+          </button>
+        </div>
+      )}
+
       {/* Decade filter */}
       {decades.length > 1 && (
         <div className="flex flex-wrap gap-2">
