@@ -3,7 +3,7 @@ import type { Album } from "./types/Album"
 import { supabase } from "./services/supabaseClient"
 import { searchAlbums } from "./services/musicbrainz"
 import { fetchUserRankings, saveRanking, deleteRanking } from "./services/rankingsApi"
-import { fetchProfile } from "./services/profilesApi"
+import { fetchProfile, upsertProfile } from "./services/profilesApi"
 import { updateRatings } from "./services/elo"
 import { pickOpponent, pickRankedPlayPair } from "./services/matchmaking"
 
@@ -12,9 +12,11 @@ import SearchPage from "./components/SearchPage"
 import Comparison from "./components/Comparison"
 import LoginForm from "./components/LoginForm"
 import ProfilePage from "./components/ProfilePage"
+import FriendsPage from "./components/FriendsPage"
 import type { User } from "@supabase/supabase-js"
+import { fetchPendingRequests } from "./services/friendsApi"
 
-type Page = "rankings" | "search" | "profile"
+type Page = "rankings" | "search" | "friends" | "profile"
 
 function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -28,6 +30,8 @@ function App() {
   const [opponent, setOpponent] = useState<Album | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [rankedPlayMode, setRankedPlayMode] = useState(false)
+  const [pendingFriendCount, setPendingFriendCount] = useState(0)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // H1: guard against double-invocation from fast keyboard input
   const resolving = useRef(false)
@@ -52,6 +56,9 @@ function App() {
       .then(setRanked)
       .finally(() => setLoadingRankings(false))
     fetchProfile(user.id).then(p => setAvatarUrl(p?.avatarUrl ?? null))
+    // Option A: silently ensure the user's email is in profiles so friends can search for them
+    if (user.email) upsertProfile(user.id, { email: user.email })
+    fetchPendingRequests(user.id).then(reqs => setPendingFriendCount(reqs.length))
   }, [user])
 
   // H4: AbortController cancels in-flight search when query changes
@@ -260,18 +267,33 @@ function App() {
       <header className="bg-surface border-b border-white/5 sticky top-0 z-50">
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <h1 className="text-sm font-bold text-cream tracking-wide shrink-0">Album Ranker</h1>
-          <nav className="flex items-center gap-1">
+
+          {/* Desktop nav */}
+          <nav className="hidden sm:flex items-center gap-1">
             <button
               onClick={() => { setPage("rankings"); setQuery(""); setResults([]) }}
-              className={`px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 page === "rankings" ? "bg-steel text-white" : "text-taupe hover:text-cream"
               }`}
             >
               My Albums
             </button>
             <button
+              onClick={() => setPage("friends")}
+              className={`relative px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                page === "friends" ? "bg-steel text-white" : "text-taupe hover:text-cream"
+              }`}
+            >
+              Friends
+              {pendingFriendCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-steel text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                  {pendingFriendCount}
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => setPage("search")}
-              className={`px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 page === "search" ? "bg-steel text-white" : "text-taupe hover:text-cream"
               }`}
             >
@@ -279,7 +301,7 @@ function App() {
             </button>
             <button
               onClick={() => setPage("profile")}
-              className="ml-2 sm:ml-4 w-9 h-9 rounded-full bg-steel/20 overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-steel/50 transition-all shrink-0"
+              className="ml-4 w-9 h-9 rounded-full bg-steel/20 overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-steel/50 transition-all shrink-0"
               title="Profile"
             >
               {avatarUrl
@@ -288,8 +310,81 @@ function App() {
               }
             </button>
           </nav>
+
+          {/* Mobile: avatar + hamburger */}
+          <div className="flex sm:hidden items-center gap-2">
+            <button
+              onClick={() => { setPage("profile"); setMobileMenuOpen(false) }}
+              className="w-8 h-8 rounded-full bg-steel/20 overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-steel/50 transition-all shrink-0"
+              title="Profile"
+            >
+              {avatarUrl
+                ? <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                : <span className="text-steel text-xs font-bold">{user.email?.[0].toUpperCase()}</span>
+              }
+            </button>
+            <button
+              onClick={() => setMobileMenuOpen(prev => !prev)}
+              className="relative w-9 h-9 flex items-center justify-center rounded-lg text-cream hover:bg-white/5 transition-colors"
+              aria-label="Menu"
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="2" y1="2" x2="14" y2="14" /><line x1="14" y1="2" x2="2" y2="14" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="2" y1="4" x2="14" y2="4" /><line x1="2" y1="8" x2="14" y2="8" /><line x1="2" y1="12" x2="14" y2="12" />
+                </svg>
+              )}
+              {pendingFriendCount > 0 && !mobileMenuOpen && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-steel" />
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Mobile dropdown */}
+        {mobileMenuOpen && (
+          <nav className="sm:hidden border-t border-white/5 bg-surface px-4 py-2 flex flex-col">
+            <button
+              onClick={() => { setPage("rankings"); setQuery(""); setResults([]); setMobileMenuOpen(false) }}
+              className={`flex items-center px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
+                page === "rankings" ? "text-cream bg-white/5" : "text-taupe hover:text-cream hover:bg-white/5"
+              }`}
+            >
+              My Albums
+            </button>
+            <button
+              onClick={() => { setPage("friends"); setMobileMenuOpen(false) }}
+              className={`flex items-center gap-2 px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
+                page === "friends" ? "text-cream bg-white/5" : "text-taupe hover:text-cream hover:bg-white/5"
+              }`}
+            >
+              Friends
+              {pendingFriendCount > 0 && (
+                <span className="min-w-[16px] h-4 px-1 rounded-full bg-steel text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                  {pendingFriendCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => { setPage("search"); setMobileMenuOpen(false) }}
+              className={`flex items-center px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
+                page === "search" ? "text-cream bg-white/5" : "text-taupe hover:text-cream hover:bg-white/5"
+              }`}
+            >
+              Search
+            </button>
+          </nav>
+        )}
       </header>
+
+      {/* Backdrop to close mobile menu when tapping outside */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-40 sm:hidden" onClick={() => setMobileMenuOpen(false)} />
+      )}
 
       {/* Content — key triggers fade-in animation on every page switch */}
       <main key={page} className="page-transition max-w-screen-xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -302,6 +397,12 @@ function App() {
             onQueryChange={setQuery}
             results={results}
             onCompare={startComparison}
+          />
+        )}
+        {page === "friends" && (
+          <FriendsPage
+            user={user}
+            onPendingCountChange={setPendingFriendCount}
           />
         )}
         {page === "profile" && (
