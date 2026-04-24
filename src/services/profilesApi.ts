@@ -21,28 +21,30 @@ export type Profile = {
   id: string
   displayName: string | null
   avatarUrl: string | null
+  email: string | null
 }
 
 export async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, display_name, avatar_url")
+    .select("id, display_name, avatar_url, email")
     .eq("id", userId)
     .maybeSingle()
 
   if (error) { console.error("fetchProfile error:", error); return null }
   if (!data) return null
 
-  return { id: data.id, displayName: data.display_name, avatarUrl: data.avatar_url }
+  return { id: data.id, displayName: data.display_name, avatarUrl: data.avatar_url, email: data.email ?? null }
 }
 
-export async function upsertProfile(userId: string, updates: { displayName?: string; avatarUrl?: string }) {
+export async function upsertProfile(userId: string, updates: { displayName?: string; avatarUrl?: string; email?: string }) {
   const { error } = await supabase
     .from("profiles")
     .upsert({
       id: userId,
       ...(updates.displayName !== undefined && { display_name: updates.displayName }),
       ...(updates.avatarUrl   !== undefined && { avatar_url: updates.avatarUrl }),
+      ...(updates.email       !== undefined && { email: updates.email }),
       updated_at: new Date().toISOString(),
     })
   if (error) throw error

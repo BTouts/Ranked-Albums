@@ -3,7 +3,7 @@ import type { Album } from "./types/Album"
 import { supabase } from "./services/supabaseClient"
 import { searchAlbums } from "./services/musicbrainz"
 import { fetchUserRankings, saveRanking, deleteRanking } from "./services/rankingsApi"
-import { fetchProfile } from "./services/profilesApi"
+import { fetchProfile, upsertProfile } from "./services/profilesApi"
 import { updateRatings } from "./services/elo"
 import { pickOpponent, pickRankedPlayPair } from "./services/matchmaking"
 
@@ -12,9 +12,11 @@ import SearchPage from "./components/SearchPage"
 import Comparison from "./components/Comparison"
 import LoginForm from "./components/LoginForm"
 import ProfilePage from "./components/ProfilePage"
+import FriendsPage from "./components/FriendsPage"
 import type { User } from "@supabase/supabase-js"
+import { fetchPendingRequests } from "./services/friendsApi"
 
-type Page = "rankings" | "search" | "profile"
+type Page = "rankings" | "search" | "friends" | "profile"
 
 function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -28,6 +30,7 @@ function App() {
   const [opponent, setOpponent] = useState<Album | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [rankedPlayMode, setRankedPlayMode] = useState(false)
+  const [pendingFriendCount, setPendingFriendCount] = useState(0)
 
   // H1: guard against double-invocation from fast keyboard input
   const resolving = useRef(false)
@@ -52,6 +55,9 @@ function App() {
       .then(setRanked)
       .finally(() => setLoadingRankings(false))
     fetchProfile(user.id).then(p => setAvatarUrl(p?.avatarUrl ?? null))
+    // Option A: silently ensure the user's email is in profiles so friends can search for them
+    if (user.email) upsertProfile(user.id, { email: user.email })
+    fetchPendingRequests(user.id).then(reqs => setPendingFriendCount(reqs.length))
   }, [user])
 
   // H4: AbortController cancels in-flight search when query changes
@@ -270,6 +276,19 @@ function App() {
               My Albums
             </button>
             <button
+              onClick={() => setPage("friends")}
+              className={`relative px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                page === "friends" ? "bg-steel text-white" : "text-taupe hover:text-cream"
+              }`}
+            >
+              Friends
+              {pendingFriendCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-steel text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                  {pendingFriendCount}
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => setPage("search")}
               className={`px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 page === "search" ? "bg-steel text-white" : "text-taupe hover:text-cream"
@@ -302,6 +321,12 @@ function App() {
             onQueryChange={setQuery}
             results={results}
             onCompare={startComparison}
+          />
+        )}
+        {page === "friends" && (
+          <FriendsPage
+            user={user}
+            onPendingCountChange={setPendingFriendCount}
           />
         )}
         {page === "profile" && (
