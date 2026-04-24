@@ -57,3 +57,8 @@
 * {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Tailwind preflight resets button cursor to default — restore it globally */
+button {
+  cursor: pointer;
+}

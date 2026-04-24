@@ -5,7 +5,7 @@ import { searchAlbums } from "./services/musicbrainz"
 import { fetchUserRankings, saveRanking, deleteRanking } from "./services/rankingsApi"
 import { fetchProfile } from "./services/profilesApi"
 import { updateRatings } from "./services/elo"
-import { pickOpponent } from "./services/matchmaking"
+import { pickOpponent, pickRankedPlayPair } from "./services/matchmaking"
 
 import RankingPage from "./components/RankingPage"
 import SearchPage from "./components/SearchPage"
@@ -27,9 +27,11 @@ function App() {
   const [challenger, setChallenger] = useState<Album | null>(null)
   const [opponent, setOpponent] = useState<Album | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [rankedPlayMode, setRankedPlayMode] = useState(false)
 
   // H1: guard against double-invocation from fast keyboard input
   const resolving = useRef(false)
+  const recentPlayPairs = useRef(new Set<string>())
 
   // Auth
   useEffect(() => {
@@ -94,12 +96,64 @@ function App() {
     setOpponent(firstOpponent)
   }
 
+  const startRankedPlay = () => {
+    recentPlayPairs.current.clear()
+    setReturnPage("rankings")
+    setRankedPlayMode(true)
+    const pair = pickRankedPlayPair(ranked, recentPlayPairs.current)
+    if (!pair) return
+    const [a, b] = pair
+    setChallenger({ ...a, previousOpponents: [] })
+    setOpponent(b)
+  }
+
   const resolveMatch = async (score: number) => {
     // H1: prevent stale closure data corruption from fast double-input
     if (resolving.current) return
     resolving.current = true
     try {
       if (!challenger || !opponent) return
+
+      // Ranked Play: endless mode — update both albums, pick next pair, never end automatically
+      if (rankedPlayMode) {
+        const [newA, newB] = updateRatings(challenger.rating, opponent.rating, score, challenger.comparisons, opponent.comparisons)
+        const updatedA = { ...challenger, rating: newA, comparisons: challenger.comparisons + 1 }
+        const updatedB = { ...opponent, rating: newB, comparisons: opponent.comparisons + 1 }
+
+        const updatedRanked = ranked
+          .map(a => a.id === updatedA.id ? updatedA : a.id === updatedB.id ? updatedB : a)
+          .sort((a, b) => b.rating - a.rating)
+
+        const pairKey = [challenger.id, opponent.id].sort().join("|")
+        recentPlayPairs.current.add(pairKey)
+        // Reset after covering ~half the candidate pool so sessions feel fresh
+        // Pool size ≈ N * RANK_WINDOW (4); half of that keeps memory reasonable
+        const resetThreshold = Math.max(updatedRanked.length * 2, 8)
+        if (recentPlayPairs.current.size >= resetThreshold) {
+          recentPlayPairs.current.clear()
+          recentPlayPairs.current.add(pairKey)
+        }
+
+        setRanked(updatedRanked)
+        if (user) {
+          saveRanking(user.id, updatedA)
+          saveRanking(user.id, updatedB)
+        }
+
+        const nextPair = pickRankedPlayPair(updatedRanked, recentPlayPairs.current)
+        if (!nextPair) {
+          setRankedPlayMode(false)
+          setChallenger(null)
+          setOpponent(null)
+          setPage("rankings")
+          return
+        }
+        const [nextA, nextB] = nextPair
+        setChallenger({ ...nextA, previousOpponents: [] })
+        setOpponent(nextB)
+        return
+      }
+
       const [newA, newB] = updateRatings(challenger.rating, opponent.rating, score, challenger.comparisons, opponent.comparisons)
       const updatedChallenger = {
         ...challenger,
@@ -158,8 +212,11 @@ function App() {
   }
 
   const cancelComparison = () => {
-    // Always remove and delete an album that was added from search but never fully placed
-    if (challenger && returnPage === "search") {
+    if (rankedPlayMode) {
+      recentPlayPairs.current.clear()
+      setRankedPlayMode(false)
+    } else if (challenger && returnPage === "search") {
+      // Always remove and delete an album that was added from search but never fully placed
       setRanked(prev => prev.filter(a => a.id !== challenger.id))
       if (user) deleteRanking(user.id, challenger.id)
     }
@@ -191,6 +248,7 @@ function App() {
         onWorse={() => resolveMatch(0)}
         onTie={() => resolveMatch(0.5)}
         onCancel={cancelComparison}
+        mode={rankedPlayMode ? "ranked-play" : "placement"}
       />
     )
   }
@@ -236,7 +294,7 @@ function App() {
       {/* Content — key triggers fade-in animation on every page switch */}
       <main key={page} className="page-transition max-w-screen-xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {page === "rankings" && (
-          <RankingPage albums={ranked} loading={loadingRankings} onPlayMatches={startRefinement} onDelete={deleteAlbum} />
+          <RankingPage albums={ranked} loading={loadingRankings} onPlayMatches={startRefinement} onDelete={deleteAlbum} onStartRankedPlay={startRankedPlay} />
         )}
         {page === "search" && (
           <SearchPage

@@ -9,9 +9,10 @@ type Props = {
   onWorse: () => void
   onTie: () => void
   onCancel: () => void
+  mode?: "placement" | "ranked-play"
 }
 
-export default function Comparison({ newAlbum, existingAlbum, onBetter, onWorse, onTie, onCancel }: Props) {
+export default function Comparison({ newAlbum, existingAlbum, onBetter, onWorse, onTie, onCancel, mode = "placement" }: Props) {
   const [coversReady, setCoversReady] = useState(false)
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function Comparison({ newAlbum, existingAlbum, onBetter, onWorse,
   }, [onBetter, onWorse, onTie, onCancel, coversReady])
 
   const remaining = newAlbum.placementMatches
+  const isRankedPlay = mode === "ranked-play"
 
   return (
     <div className="min-h-screen bg-ink flex flex-col items-center justify-center px-4 py-10 gap-6 font-sans comparison-enter">
@@ -45,8 +47,12 @@ export default function Comparison({ newAlbum, existingAlbum, onBetter, onWorse,
       <div className="text-center">
         <h2 className="text-cream text-xl sm:text-2xl font-bold">Which do you prefer?</h2>
         <p className="text-taupe text-xs mt-1">
-          {remaining} match{remaining !== 1 ? "es" : ""} remaining
-          <span className="hidden sm:inline"> &nbsp;·&nbsp; ← → keys &nbsp;·&nbsp; Space = tie &nbsp;·&nbsp; Esc = cancel</span>
+          {isRankedPlay
+            ? "Ranked Play · keep going as long as you like"
+            : `${remaining} match${remaining !== 1 ? "es" : ""} remaining`}
+          <span className="hidden sm:inline">
+            {" "}&nbsp;·&nbsp; ← → keys &nbsp;·&nbsp; Space = tie &nbsp;·&nbsp; Esc = {isRankedPlay ? "stop" : "cancel"}
+          </span>
         </p>
       </div>
 
@@ -95,7 +101,7 @@ export default function Comparison({ newAlbum, existingAlbum, onBetter, onWorse,
           onClick={onCancel}
           className="text-xs text-white/20 hover:text-white/50 transition-colors"
         >
-          cancel
+          {isRankedPlay ? "stop" : "cancel"}
         </button>
       </div>
     </div>
