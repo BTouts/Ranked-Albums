@@ -266,7 +266,28 @@ function App() {
       {/* Nav */}
       <header className="bg-surface border-b border-white/5 sticky top-0 z-50">
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <h1 className="text-sm font-bold text-cream tracking-wide shrink-0">Album Ranker</h1>
+          {/* Mobile: hamburger on left */}
+          <button
+            onClick={() => setMobileMenuOpen(prev => !prev)}
+            className="relative sm:hidden w-9 h-9 flex items-center justify-center rounded-lg text-cream hover:bg-white/5 transition-colors"
+            aria-label="Menu"
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="2" y1="2" x2="14" y2="14" /><line x1="14" y1="2" x2="2" y2="14" />
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="2" y1="4" x2="14" y2="4" /><line x1="2" y1="8" x2="14" y2="8" /><line x1="2" y1="12" x2="14" y2="12" />
+              </svg>
+            )}
+            {pendingFriendCount > 0 && !mobileMenuOpen && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-steel" />
+            )}
+          </button>
+
+          <h1 className="text-sm font-bold text-cream tracking-wide shrink-0 sm:mr-auto">Album Ranker</h1>
 
           {/* Desktop nav */}
           <nav className="hidden sm:flex items-center gap-1">
@@ -311,38 +332,17 @@ function App() {
             </button>
           </nav>
 
-          {/* Mobile: avatar + hamburger */}
-          <div className="flex sm:hidden items-center gap-2">
-            <button
-              onClick={() => { setPage("profile"); setMobileMenuOpen(false) }}
-              className="w-8 h-8 rounded-full bg-steel/20 overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-steel/50 transition-all shrink-0"
-              title="Profile"
-            >
-              {avatarUrl
-                ? <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
-                : <span className="text-steel text-xs font-bold">{user.email?.[0].toUpperCase()}</span>
-              }
-            </button>
-            <button
-              onClick={() => setMobileMenuOpen(prev => !prev)}
-              className="relative w-9 h-9 flex items-center justify-center rounded-lg text-cream hover:bg-white/5 transition-colors"
-              aria-label="Menu"
-              aria-expanded={mobileMenuOpen}
-            >
-              {mobileMenuOpen ? (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <line x1="2" y1="2" x2="14" y2="14" /><line x1="14" y1="2" x2="2" y2="14" />
-                </svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <line x1="2" y1="4" x2="14" y2="4" /><line x1="2" y1="8" x2="14" y2="8" /><line x1="2" y1="12" x2="14" y2="12" />
-                </svg>
-              )}
-              {pendingFriendCount > 0 && !mobileMenuOpen && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-steel" />
-              )}
-            </button>
-          </div>
+          {/* Mobile: profile avatar on right */}
+          <button
+            onClick={() => { setPage("profile"); setMobileMenuOpen(false) }}
+            className="sm:hidden w-8 h-8 rounded-full bg-steel/20 overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-steel/50 transition-all shrink-0"
+            title="Profile"
+          >
+            {avatarUrl
+              ? <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+              : <span className="text-steel text-xs font-bold">{user.email?.[0].toUpperCase()}</span>
+            }
+          </button>
         </div>
 
         {/* Mobile dropdown */}
