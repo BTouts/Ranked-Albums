@@ -30,7 +30,7 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelet
   const isTouch = useIsTouchDevice()
   const imgRef = useRef<HTMLImageElement>(null)
 
-  const useModal = isTouch && !!onPlayMatches && !onClick
+  const useModal = isTouch && (!!onPlayMatches || !!onClick)
 
   const coverUrl = album.coverUrl
     ?? (isKnownMissing(album.id) ? null : `https://coverartarchive.org/release-group/${album.id}/front-250`)
@@ -218,6 +218,15 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelet
                     </svg>
                   </button>
                 </div>
+
+                {onClick && (
+                  <button
+                    onClick={() => { setModalOpen(false); onClick() }}
+                    className="w-full py-3 rounded-xl bg-steel text-white text-sm font-medium active:scale-95 transition-all"
+                  >
+                    Add to my list
+                  </button>
+                )}
 
                 {onPlayMatches && (
                   <button
