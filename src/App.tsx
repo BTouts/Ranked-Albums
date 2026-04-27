@@ -82,6 +82,8 @@ function App() {
       setRanked([newAlbum])
       if (user) await saveRanking(user.id, newAlbum) // L4: await so first album is persisted
       setPage("rankings")
+      setQuery("")
+      setResults([])
       return
     }
     const firstOpponent = pickOpponent(newAlbum, ranked)
@@ -183,6 +185,7 @@ function App() {
         setChallenger(null)
         setOpponent(null)
         setPage("rankings")
+        if (returnPage === "search") { setQuery(""); setResults([]) }
         if (user) {
           await saveRanking(user.id, updatedChallenger)
           await saveRanking(user.id, updatedOpponent)
@@ -199,6 +202,7 @@ function App() {
         setOpponent(null)
         setChallenger(null)
         setPage(returnPage)
+        if (returnPage === "search") { setQuery(""); setResults([]) }
       } else {
         setOpponent(nextOpponent)
       }
@@ -300,6 +304,14 @@ function App() {
               My Albums
             </button>
             <button
+              onClick={() => setPage("search")}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                page === "search" ? "bg-steel text-white" : "text-taupe hover:text-cream"
+              }`}
+            >
+              Search
+            </button>
+            <button
               onClick={() => setPage("friends")}
               className={`relative px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 page === "friends" ? "bg-steel text-white" : "text-taupe hover:text-cream"
@@ -311,14 +323,6 @@ function App() {
                   {pendingFriendCount}
                 </span>
               )}
-            </button>
-            <button
-              onClick={() => setPage("search")}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                page === "search" ? "bg-steel text-white" : "text-taupe hover:text-cream"
-              }`}
-            >
-              Search
             </button>
             <button
               onClick={() => setPage("profile")}
@@ -357,6 +361,14 @@ function App() {
               My Albums
             </button>
             <button
+              onClick={() => { setPage("search"); setMobileMenuOpen(false) }}
+              className={`flex items-center px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
+                page === "search" ? "text-cream bg-white/5" : "text-taupe hover:text-cream hover:bg-white/5"
+              }`}
+            >
+              Search
+            </button>
+            <button
               onClick={() => { setPage("friends"); setMobileMenuOpen(false) }}
               className={`flex items-center gap-2 px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
                 page === "friends" ? "text-cream bg-white/5" : "text-taupe hover:text-cream hover:bg-white/5"
@@ -368,14 +380,6 @@ function App() {
                   {pendingFriendCount}
                 </span>
               )}
-            </button>
-            <button
-              onClick={() => { setPage("search"); setMobileMenuOpen(false) }}
-              className={`flex items-center px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
-                page === "search" ? "text-cream bg-white/5" : "text-taupe hover:text-cream hover:bg-white/5"
-              }`}
-            >
-              Search
             </button>
           </nav>
         )}
