@@ -6,9 +6,10 @@ type Props = {
   getRank?: (albumId: string) => number
   onPlayMatches?: (album: Album) => void
   onDelete?: (album: Album) => void
+  infoOnly?: boolean
 }
 
-export default function RankingList({ albums, getRank, onPlayMatches, onDelete }: Props) {
+export default function RankingList({ albums, getRank, onPlayMatches, onDelete, infoOnly }: Props) {
   return (
     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-px bg-surface">
       {albums.map((album, i) => (
@@ -18,6 +19,7 @@ export default function RankingList({ albums, getRank, onPlayMatches, onDelete }
           rank={getRank ? getRank(album.id) : i + 1}
           onPlayMatches={onPlayMatches ? () => onPlayMatches(album) : undefined}
           onDelete={onDelete ? () => onDelete(album) : undefined}
+          infoOnly={infoOnly}
         />
       ))}
     </div>

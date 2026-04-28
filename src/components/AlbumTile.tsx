@@ -9,6 +9,7 @@ type Props = {
   onClick?: () => void
   onPlayMatches?: () => void
   onDelete?: () => void
+  infoOnly?: boolean
 }
 
 function confidence(comparisons: number) {
@@ -23,14 +24,14 @@ function streamingUrls(album: Album) {
   }
 }
 
-export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelete }: Props) {
+export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelete, infoOnly }: Props) {
   const [modalOpen, setModalOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [imgFailed, setImgFailed] = useState(false)
   const isTouch = useIsTouchDevice()
   const imgRef = useRef<HTMLImageElement>(null)
 
-  const useModal = isTouch && (!!onPlayMatches || !!onClick)
+  const useModal = isTouch && (!!onPlayMatches || !!onClick || !!infoOnly)
 
   const coverUrl = album.coverUrl
     ?? (isKnownMissing(album.id) ? null : `https://coverartarchive.org/release-group/${album.id}/front-250`)
