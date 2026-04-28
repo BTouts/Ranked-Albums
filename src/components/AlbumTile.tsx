@@ -9,6 +9,7 @@ type Props = {
   onClick?: () => void
   onPlayMatches?: () => void
   onDelete?: () => void
+  infoOnly?: boolean
 }
 
 function confidence(comparisons: number) {
@@ -23,14 +24,14 @@ function streamingUrls(album: Album) {
   }
 }
 
-export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelete }: Props) {
+export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelete, infoOnly }: Props) {
   const [modalOpen, setModalOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [imgFailed, setImgFailed] = useState(false)
   const isTouch = useIsTouchDevice()
   const imgRef = useRef<HTMLImageElement>(null)
 
-  const useModal = isTouch && (!!onPlayMatches || !!onClick)
+  const useModal = isTouch && (!!onPlayMatches || !!onClick || !!infoOnly)
 
   const coverUrl = album.coverUrl
     ?? (isKnownMissing(album.id) ? null : `https://coverartarchive.org/release-group/${album.id}/front-250`)
@@ -39,8 +40,8 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelet
 
   const { appleMusic, spotify } = streamingUrls(album)
 
-  const handleTileClick = () => {
-    if (useModal) { setModalOpen(true); setConfirmDelete(false) }
+  const handleTileClick = (e: React.MouseEvent) => {
+    if (useModal) { e.stopPropagation(); setModalOpen(true); setConfirmDelete(false) }
     else onClick?.()
   }
 
@@ -90,18 +91,17 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelet
           </div>
         )}
 
-        {/* Rank badge — always visible */}
+        {/* Rank badge — minimal translucent pill */}
         {rank !== undefined && (
-          <div className="absolute top-2 left-2 bg-black/70 text-white text-xs font-bold px-2 py-0.5 rounded-sm backdrop-blur-sm z-10">
+          <div className="absolute top-1.5 left-1.5 bg-black/50 text-white/80 text-[10px] font-semibold px-1.5 py-0.5 rounded backdrop-blur-sm z-10">
             {rank}
           </div>
         )}
 
-        {/* Hover overlay — desktop only */}
+        {/* Hover overlay — desktop only, content slides up from bottom */}
         {!useModal && (
-          <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex flex-col justify-between p-3 z-20">
+          <div className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex flex-col justify-end p-2.5 gap-1.5 z-20">
             {confirmDelete ? (
-              /* Inline delete confirmation */
               <div className="flex flex-col items-center justify-center h-full gap-3">
                 <p className="text-cream text-xs text-center font-medium">Remove this album?</p>
                 <div className="flex gap-2">
@@ -118,44 +118,51 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelet
             ) : (
               <>
                 <div>
-                  <p className="text-cream font-semibold text-sm leading-snug line-clamp-2">{album.title}</p>
-                  <p className="text-taupe text-xs mt-0.5 truncate">{album.artist}</p>
-                  {album.year && <p className="text-taupe/60 text-xs">{album.year}</p>}
+                  <p className="text-cream font-medium text-xs line-clamp-1 leading-snug">{album.title}</p>
+                  <p className="text-taupe/70 text-[10px] truncate">
+                    {album.artist}{album.year ? ` · ${album.year}` : ""}
+                  </p>
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  {album.comparisons > 0 && (
-                    <p className="text-powder text-xs">
-                      {Math.round(album.rating)} ELO · {confidence(album.comparisons)}% confidence
-                    </p>
+                {album.comparisons > 0 && (
+                  <p className="text-powder text-[10px]">
+                    {Math.round(album.rating)} ELO · {confidence(album.comparisons)}%
+                  </p>
+                )}
+                <div className="flex gap-1 text-[9px] text-taupe/40">
+                  <a href={appleMusic} target="_blank" rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="hover:text-cream transition-colors">Apple Music</a>
+                  <span>·</span>
+                  <a href={spotify} target="_blank" rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="hover:text-cream transition-colors">Spotify</a>
+                </div>
+                <div className="flex gap-1.5">
+                  {onPlayMatches && (
+                    <button
+                      onClick={e => { e.stopPropagation(); onPlayMatches() }}
+                      className="flex-1 py-1 text-[10px] rounded border border-white/20 text-cream/80 hover:bg-white/10 transition-colors"
+                    >
+                      Play matches
+                    </button>
                   )}
-                  <div className="flex gap-2 text-[10px] text-taupe/50">
-                    <a href={appleMusic} target="_blank" rel="noopener noreferrer"
-                      onClick={e => e.stopPropagation()}
-                      className="hover:text-cream transition-colors">Apple Music</a>
-                    <span>·</span>
-                    <a href={spotify} target="_blank" rel="noopener noreferrer"
-                      onClick={e => e.stopPropagation()}
-                      className="hover:text-cream transition-colors">Spotify</a>
-                  </div>
-                  <div className="flex gap-2">
-                    {onPlayMatches && (
-                      <button
-                        onClick={e => { e.stopPropagation(); onPlayMatches() }}
-                        className="flex-1 py-1.5 text-xs font-medium rounded bg-steel/80 text-white hover:bg-steel active:scale-95 transition-all"
-                      >
-                        Play matches
-                      </button>
-                    )}
-                    {onDelete && (
-                      <button
-                        onClick={handleDelete}
-                        className="py-1.5 px-2 text-xs rounded bg-white/5 text-taupe/50 hover:bg-red-500/20 hover:text-red-400 transition-colors"
-                        title="Remove album"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
+                  {onClick && (
+                    <button
+                      onClick={e => { e.stopPropagation(); onClick() }}
+                      className="flex-1 py-1 text-[10px] rounded border border-white/20 text-cream/80 hover:bg-white/10 transition-colors"
+                    >
+                      Add to list
+                    </button>
+                  )}
+                  {onDelete && (
+                    <button
+                      onClick={handleDelete}
+                      className="py-1 px-2 text-[10px] rounded border border-white/10 text-taupe/50 hover:border-red-500/40 hover:text-red-400 transition-colors"
+                      title="Remove album"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -174,7 +181,6 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelet
             onClick={e => e.stopPropagation()}
           >
             {confirmDelete ? (
-              /* Full-modal delete confirmation */
               <div className="flex flex-col items-center gap-4 py-2">
                 <p className="text-cream text-base font-semibold">Remove this album?</p>
                 <p className="text-taupe text-sm text-center">

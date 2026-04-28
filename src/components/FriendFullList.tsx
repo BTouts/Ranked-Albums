@@ -71,7 +71,7 @@ export default function FriendFullList({ friend, onClose }: Props) {
               <p className="text-taupe/50 text-sm">No albums ranked yet.</p>
             </div>
           ) : (
-            <RankingList albums={albums} getRank={id => rankMap.get(id) ?? 0} />
+            <RankingList albums={albums} getRank={id => rankMap.get(id) ?? 0} infoOnly />
           )}
         </div>
       </div>

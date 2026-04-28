@@ -64,6 +64,7 @@ export default function FriendCard({ friendship, albums, onView, onRemove }: Pro
                 key={album.id}
                 album={album}
                 rank={i + 1}
+                infoOnly
               />
             ))}
             {/* Filler slots so the row always looks complete */}
