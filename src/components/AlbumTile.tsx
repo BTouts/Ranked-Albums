@@ -40,8 +40,8 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelet
 
   const { appleMusic, spotify } = streamingUrls(album)
 
-  const handleTileClick = () => {
-    if (useModal) { setModalOpen(true); setConfirmDelete(false) }
+  const handleTileClick = (e: React.MouseEvent) => {
+    if (useModal) { e.stopPropagation(); setModalOpen(true); setConfirmDelete(false) }
     else onClick?.()
   }
 
