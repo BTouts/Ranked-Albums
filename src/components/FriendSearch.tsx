@@ -85,7 +85,7 @@ export default function FriendSearch({
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search by name or email…"
+            placeholder="Search by display name…"
             className="flex-1 bg-transparent text-cream text-sm placeholder-taupe/40 outline-none"
           />
           {query && (
@@ -111,7 +111,7 @@ export default function FriendSearch({
             <ul className="divide-y divide-white/5">
               {results.map(profile => {
                 const status = statusFor(profile)
-                const displayName = profile.displayName ?? profile.email ?? "User"
+                const displayName = profile.displayName ?? "User"
                 const initials = displayName.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(s => s[0].toUpperCase()).join("")
                 return (
                   <li key={profile.id} className="flex items-center gap-3 px-4 py-3">
@@ -123,9 +123,6 @@ export default function FriendSearch({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-cream text-sm truncate">{displayName}</p>
-                      {profile.email && profile.displayName && (
-                        <p className="text-taupe/40 text-xs truncate">{profile.email}</p>
-                      )}
                     </div>
                     {status === "friends" && (
                       <span className="text-powder text-xs">Friends</span>
@@ -153,7 +150,7 @@ export default function FriendSearch({
 
           {!searching && query.length < 2 && (
             <p className="text-taupe/30 text-xs text-center py-8">
-              Type a name or email to search.
+              Type a name to search.
             </p>
           )}
         </div>

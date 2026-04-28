@@ -18,6 +18,69 @@ import { fetchPendingRequests } from "./services/friendsApi"
 
 type Page = "rankings" | "search" | "friends" | "profile"
 
+function ResetPasswordForm({ onDone }: { onDone: () => void }) {
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
+
+  const inputClass =
+    "px-4 py-2.5 rounded-lg bg-surface2 border border-white/10 text-base text-cream placeholder-taupe/50 focus:outline-none focus:border-steel transition-colors"
+
+  async function handleReset() {
+    setError("")
+    if (newPassword.length < 8) return setError("Password must be at least 8 characters.")
+    if (newPassword !== confirmPassword) return setError("Passwords don't match.")
+    setLoading(true)
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    setLoading(false)
+    if (error) return setError(error.message)
+    setSuccess(true)
+    setTimeout(onDone, 1500)
+  }
+
+  return (
+    <div className="min-h-screen bg-base flex flex-col items-center justify-center gap-8 px-6">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-cream tracking-tight">Album Ranker</h1>
+        <p className="text-taupe mt-2 text-sm">Set your new password</p>
+      </div>
+      <div className="flex flex-col gap-3 w-72">
+        {success ? (
+          <p className="text-powder text-sm text-center">Password updated. Signing you in…</p>
+        ) : (
+          <>
+            <input
+              type="password"
+              placeholder="New password"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              className={inputClass}
+            />
+            <input
+              type="password"
+              placeholder="Confirm new password"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleReset()}
+              className={inputClass}
+            />
+            {error && <p className="text-red-400 text-sm">{error}</p>}
+            <button
+              onClick={handleReset}
+              disabled={loading}
+              className="py-2.5 rounded-lg bg-steel text-white font-medium hover:bg-powder transition-colors disabled:opacity-40"
+            >
+              {loading ? "Updating…" : "Set new password"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const [user, setUser] = useState<User | null>(null)
   const [page, setPage] = useState<Page>("rankings")
@@ -31,6 +94,7 @@ function App() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [rankedPlayMode, setRankedPlayMode] = useState(false)
   const [pendingFriendCount, setPendingFriendCount] = useState(0)
+  const [passwordRecoveryMode, setPasswordRecoveryMode] = useState(false)
 
   const resolving = useRef(false)
   const recentPlayPairs = useRef(new Set<string>())
@@ -41,7 +105,12 @@ function App() {
       setUser(data.session?.user ?? null)
     })
     const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null)
+      if (_e === "PASSWORD_RECOVERY") {
+        setPasswordRecoveryMode(true)
+        setUser(session?.user ?? null)
+      } else {
+        setUser(session?.user ?? null)
+      }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
@@ -229,13 +298,17 @@ function App() {
     setPage(returnPage)
   }
 
+  // --- Password recovery screen ---
+  if (passwordRecoveryMode) {
+    return <ResetPasswordForm onDone={() => setPasswordRecoveryMode(false)} />
+  }
+
   // --- Login screen ---
   if (!user) {
     return (
       <div className="min-h-screen bg-base flex flex-col items-center justify-center gap-8 px-6">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-cream tracking-tight">Album Ranker</h1>
-          <p className="text-taupe mt-2 text-sm">Rank your music, one comparison at a time.</p>
         </div>
         <LoginForm onLogin={(u) => { setUser(u); setPage("rankings") }} />
       </div>

@@ -11,8 +11,8 @@ type Props = {
 
 export default function FriendCard({ friendship, albums, onView, onRemove }: Props) {
   const { friend } = friendship
-  const displayName = friend.displayName ?? friend.email ?? "Friend"
-  const initials = displayName.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(s => s[0].toUpperCase()).join("")
+  const displayName = friend.displayName ?? "Friend"
+  const initials = displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((s: string) => s[0].toUpperCase()).join("")
   const loading = albums === undefined
   const preview = albums?.slice(0, 5) ?? []
 
@@ -28,9 +28,6 @@ export default function FriendCard({ friendship, albums, onView, onRemove }: Pro
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-cream text-sm font-medium truncate">{displayName}</p>
-          {friend.email && friend.displayName && (
-            <p className="text-taupe/40 text-xs truncate">{friend.email}</p>
-          )}
         </div>
         <button
           onClick={e => { e.stopPropagation(); onRemove() }}

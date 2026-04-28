@@ -62,6 +62,10 @@ export default function ProfilePage({ user, onSignOut, onBack, onAvatarChange }:
       setNameMsg({ ok: false, text: "Please upload a JPEG, PNG, WebP, or GIF." })
       return
     }
+    if (file.size > 2_000_000) {
+      setNameMsg({ ok: false, text: "Image must be under 2 MB." })
+      return
+    }
     setUploadingAvatar(true)
     try {
       const url = await uploadAvatar(user.id, file)
@@ -83,8 +87,8 @@ export default function ProfilePage({ user, onSignOut, onBack, onAvatarChange }:
       setPasswordMsg({ ok: false, text: "Passwords don't match." })
       return
     }
-    if (newPassword.length < 6) {
-      setPasswordMsg({ ok: false, text: "Password must be at least 6 characters." })
+    if (newPassword.length < 8) {
+      setPasswordMsg({ ok: false, text: "Password must be at least 8 characters." })
       return
     }
     setSavingPassword(true)
@@ -153,6 +157,7 @@ export default function ProfilePage({ user, onSignOut, onBack, onAvatarChange }:
           value={displayName}
           onChange={e => setDisplayName(e.target.value)}
           placeholder="Your name"
+          maxLength={50}
           className="w-full px-4 py-2.5 rounded-lg bg-surface2 border border-white/8 text-base text-cream placeholder-taupe/40 focus:outline-none focus:border-steel transition-colors"
         />
         <div className="flex items-center gap-3">

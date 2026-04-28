@@ -21,8 +21,8 @@ export default function FriendFullList({ friend, onClose }: Props) {
   }, [friend.id])
 
   const rankMap = new Map(albums.map((a, i) => [a.id, i + 1]))
-  const displayName = friend.displayName ?? friend.email ?? "Friend"
-  const initials = displayName.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(s => s[0].toUpperCase()).join("")
+  const displayName = friend.displayName ?? "Friend"
+  const initials = displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((s: string) => s[0].toUpperCase()).join("")
 
   return (
     <div

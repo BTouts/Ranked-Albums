@@ -5,7 +5,6 @@ export type FriendProfile = {
   id: string
   displayName: string | null
   avatarUrl: string | null
-  email: string | null
 }
 
 export type Friendship = {
@@ -26,16 +25,22 @@ function toFriendProfile(row: any): FriendProfile {
     id: row.id,
     displayName: row.display_name ?? null,
     avatarUrl: row.avatar_url ?? null,
-    email: row.email ?? null,
   }
 }
 
+function sanitizeSearchQuery(query: string): string {
+  // Strip SQL LIKE wildcards and PostgREST filter special chars
+  return query.replace(/[%_\\,()]/g, "").trim()
+}
+
 export async function searchProfiles(query: string, excludeId: string): Promise<FriendProfile[]> {
-  if (!query.trim()) return []
+  if (query.trim().length < 2) return []
+  const safe = sanitizeSearchQuery(query)
+  if (!safe) return []
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, display_name, avatar_url, email")
-    .or(`display_name.ilike.%${query}%,email.ilike.%${query}%`)
+    .select("id, display_name, avatar_url")
+    .ilike("display_name", `%${safe}%`)
     .neq("id", excludeId)
     .limit(10)
   if (error) throw error
@@ -54,7 +59,7 @@ export async function fetchFriends(userId: string): Promise<Friendship[]> {
   const friendIds = data.map(f => f.requester_id === userId ? f.addressee_id : f.requester_id)
   const { data: profiles, error: pErr } = await supabase
     .from("profiles")
-    .select("id, display_name, avatar_url, email")
+    .select("id, display_name, avatar_url")
     .in("id", friendIds)
   if (pErr) throw pErr
 
@@ -66,7 +71,7 @@ export async function fetchFriends(userId: string): Promise<Friendship[]> {
       id: f.id,
       requesterId: f.requester_id,
       addresseeId: f.addressee_id,
-      friend: p ? toFriendProfile(p) : { id: friendId, displayName: null, avatarUrl: null, email: null },
+      friend: p ? toFriendProfile(p) : { id: friendId, displayName: null, avatarUrl: null },
     }
   })
 }
@@ -83,7 +88,7 @@ export async function fetchPendingRequests(userId: string): Promise<PendingReque
   const requesterIds = data.map(f => f.requester_id)
   const { data: profiles, error: pErr } = await supabase
     .from("profiles")
-    .select("id, display_name, avatar_url, email")
+    .select("id, display_name, avatar_url")
     .in("id", requesterIds)
   if (pErr) throw pErr
 
@@ -93,7 +98,7 @@ export async function fetchPendingRequests(userId: string): Promise<PendingReque
     return {
       id: f.id,
       requesterId: f.requester_id,
-      requester: p ? toFriendProfile(p) : { id: f.requester_id, displayName: null, avatarUrl: null, email: null },
+      requester: p ? toFriendProfile(p) : { id: f.requester_id, displayName: null, avatarUrl: null },
     }
   })
 }
@@ -111,6 +116,7 @@ export async function fetchSentRequestIds(userId: string): Promise<Set<string>> 
 
 // Sends a friend request. If the other person already sent one to us, accept it instead.
 export async function sendFriendRequest(requesterId: string, addresseeId: string): Promise<void> {
+  if (requesterId === addresseeId) return
   const { data: incoming } = await supabase
     .from("friendships")
     .select("id, status")
