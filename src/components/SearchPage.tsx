@@ -80,7 +80,7 @@ export default function SearchPage({ query, onQueryChange, results, onCompare }:
       ) : results.length === 0 ? (
         <p className="text-taupe/30 text-sm text-center mt-8">No results found.</p>
       ) : (
-        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-px bg-surface2">
+        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-px bg-surface">
           {results.map(album => (
             <AlbumTile key={album.id} album={album} onClick={() => onCompare(album)} />
           ))}
@@ -104,7 +104,7 @@ export default function SearchPage({ query, onQueryChange, results, onCompare }:
         <div className="flex flex-col gap-3">
           <p className="text-taupe/40 text-xs tracking-widest uppercase text-center">Extended results</p>
           {mbLoading ? (
-            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-px bg-surface2">
+            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-px bg-surface">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="aspect-square bg-surface2 animate-pulse" />
               ))}
@@ -112,7 +112,7 @@ export default function SearchPage({ query, onQueryChange, results, onCompare }:
           ) : mbResults.length === 0 ? (
             <p className="text-taupe/30 text-sm text-center">No extended results found.</p>
           ) : (
-            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-px bg-surface2">
+            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-px bg-surface">
               {mbResults.map(album => (
                 <AlbumTile key={album.id} album={album} onClick={() => onCompare(album)} />
               ))}

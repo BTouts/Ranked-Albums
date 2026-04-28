@@ -153,7 +153,7 @@ export default function ProfilePage({ user, onSignOut, onBack, onAvatarChange }:
           value={displayName}
           onChange={e => setDisplayName(e.target.value)}
           placeholder="Your name"
-          className="w-full px-4 py-2.5 rounded-lg bg-surface2 border border-white/10 text-base text-cream placeholder-taupe/40 focus:outline-none focus:border-steel transition-colors"
+          className="w-full px-4 py-2.5 rounded-lg bg-surface2 border border-white/8 text-base text-cream placeholder-taupe/40 focus:outline-none focus:border-steel transition-colors"
         />
         <div className="flex items-center gap-3">
           <button
@@ -177,14 +177,14 @@ export default function ProfilePage({ user, onSignOut, onBack, onAvatarChange }:
           value={newPassword}
           onChange={e => setNewPassword(e.target.value)}
           placeholder="New password"
-          className="w-full px-4 py-2.5 rounded-lg bg-surface2 border border-white/10 text-base text-cream placeholder-taupe/40 focus:outline-none focus:border-steel transition-colors"
+          className="w-full px-4 py-2.5 rounded-lg bg-surface2 border border-white/8 text-base text-cream placeholder-taupe/40 focus:outline-none focus:border-steel transition-colors"
         />
         <input
           type="password"
           value={confirmPassword}
           onChange={e => setConfirmPassword(e.target.value)}
           placeholder="Confirm new password"
-          className="w-full px-4 py-2.5 rounded-lg bg-surface2 border border-white/10 text-base text-cream placeholder-taupe/40 focus:outline-none focus:border-steel transition-colors"
+          className="w-full px-4 py-2.5 rounded-lg bg-surface2 border border-white/8 text-base text-cream placeholder-taupe/40 focus:outline-none focus:border-steel transition-colors"
         />
         <div className="flex items-center gap-3">
           <button
