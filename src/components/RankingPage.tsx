@@ -1,6 +1,8 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import type { Album } from "../types/Album"
 import RankingList from "./RankingList"
+import OnboardingModal from "./OnboardingModal"
+import { hasSeenOnboarding, markOnboardingComplete } from "../utils/onboardingState"
 
 type Props = {
   albums: Album[]
@@ -14,6 +16,13 @@ type Props = {
 export default function RankingPage({ albums, loading, onPlayMatches, onDelete, onStartRankedPlay, onGoToSearch }: Props) {
   const [decadeFilter, setDecadeFilter] = useState("All")
   const [yearFilter, setYearFilter] = useState("All")
+  const [showOnboarding, setShowOnboarding] = useState(false)
+
+  useEffect(() => {
+    if (!loading && albums.length === 0 && !hasSeenOnboarding()) {
+      setShowOnboarding(true)
+    }
+  }, [loading, albums.length])
 
   const decades = useMemo(() => {
     const set = new Set<string>()
@@ -52,6 +61,22 @@ export default function RankingPage({ albums, loading, onPlayMatches, onDelete, 
       return `${Math.floor(parseInt(a.year) / 10) * 10}s` === decadeFilter
     })
   }, [albums, decadeFilter, yearFilter])
+
+  if (showOnboarding) {
+    return (
+      <OnboardingModal
+        onGetStarted={() => {
+          markOnboardingComplete()
+          setShowOnboarding(false)
+          onGoToSearch?.()
+        }}
+        onDismiss={() => {
+          markOnboardingComplete()
+          setShowOnboarding(false)
+        }}
+      />
+    )
+  }
 
   if (loading) {
     return (
@@ -104,17 +129,31 @@ export default function RankingPage({ albums, loading, onPlayMatches, onDelete, 
         </div>
 
         {/* Ghost Ranked Play button */}
-        {albums.length >= 2 && onStartRankedPlay && (
-          <button
-            onClick={onStartRankedPlay}
-            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded border border-white/15 text-taupe/70 text-xs font-medium hover:border-white/30 hover:text-cream transition-colors"
-          >
-            <svg width="9" height="9" viewBox="0 0 9 9" fill="currentColor">
-              <polygon points="1,0 9,4.5 1,9" />
-            </svg>
-            Ranked Play
-          </button>
-        )}
+        {albums.length >= 2 && onStartRankedPlay && (() => {
+          const locked = albums.length < 6
+          return (
+            <div className="group/rp relative shrink-0">
+              <button
+                onClick={locked ? undefined : onStartRankedPlay}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-medium transition-colors ${
+                  locked
+                    ? "border-white/8 text-taupe/25 cursor-default"
+                    : "border-white/15 text-taupe/70 hover:border-white/30 hover:text-cream"
+                }`}
+              >
+                <svg width="9" height="9" viewBox="0 0 9 9" fill="currentColor">
+                  <polygon points="1,0 9,4.5 1,9" />
+                </svg>
+                Ranked Play
+              </button>
+              {locked && (
+                <p className="pointer-events-none absolute top-full mt-1.5 right-0 whitespace-nowrap text-[10px] text-taupe/50 bg-surface2 border border-white/8 rounded px-2 py-1 z-10 opacity-0 group-hover/rp:opacity-100 transition-opacity">
+                  Add {6 - albums.length} more album{6 - albums.length !== 1 ? "s" : ""} to unlock
+                </p>
+              )}
+            </div>
+          )
+        })()}
       </div>
 
       {/* Year sub-filter — same text-tab style */}
@@ -139,7 +178,7 @@ export default function RankingPage({ albums, loading, onPlayMatches, onDelete, 
         </div>
       )}
 
-      <RankingList albums={filtered} getRank={getRank} onPlayMatches={onPlayMatches} onDelete={onDelete} />
+      <RankingList albums={filtered} getRank={getRank} onPlayMatches={onPlayMatches} onDelete={onDelete} playMatchesDisabled={albums.length < 6} />
     </div>
   )
 }

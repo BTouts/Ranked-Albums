@@ -102,8 +102,8 @@ export default function FriendsPage({ user, onPendingCountChange }: Props) {
           </p>
           <div className="flex flex-col gap-2">
             {pendingIncoming.map(req => {
-              const name = req.requester.displayName ?? req.requester.email ?? "Someone"
-              const initials = name.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(s => s[0].toUpperCase()).join("")
+              const name = req.requester.displayName ?? "Someone"
+              const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((s: string) => s[0].toUpperCase()).join("")
               return (
                 <div key={req.id} className="flex items-center gap-3 bg-surface2 rounded-xl px-4 py-3">
                   <div className="w-8 h-8 rounded-full bg-steel/20 overflow-hidden flex items-center justify-center shrink-0">

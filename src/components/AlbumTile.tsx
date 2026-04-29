@@ -10,6 +10,7 @@ type Props = {
   onPlayMatches?: () => void
   onDelete?: () => void
   infoOnly?: boolean
+  playMatchesDisabled?: boolean
 }
 
 function confidence(comparisons: number) {
@@ -24,7 +25,7 @@ function streamingUrls(album: Album) {
   }
 }
 
-export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelete, infoOnly }: Props) {
+export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelete, infoOnly, playMatchesDisabled }: Props) {
   const [modalOpen, setModalOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [imgFailed, setImgFailed] = useState(false)
@@ -140,8 +141,14 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelet
                 <div className="flex gap-1.5">
                   {onPlayMatches && (
                     <button
-                      onClick={e => { e.stopPropagation(); onPlayMatches() }}
-                      className="flex-1 py-1 text-[10px] rounded border border-white/20 text-cream/80 hover:bg-white/10 transition-colors"
+                      onClick={e => { e.stopPropagation(); if (!playMatchesDisabled) onPlayMatches() }}
+                      disabled={playMatchesDisabled}
+                      title={playMatchesDisabled ? "Add at least 6 albums to unlock Play Matches" : undefined}
+                      className={`flex-1 py-1 text-[10px] rounded border transition-colors ${
+                        playMatchesDisabled
+                          ? "border-white/8 text-taupe/25 cursor-default"
+                          : "border-white/20 text-cream/80 hover:bg-white/10"
+                      }`}
                     >
                       Play matches
                     </button>
@@ -235,12 +242,22 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelet
                 )}
 
                 {onPlayMatches && (
-                  <button
-                    onClick={() => { setModalOpen(false); onPlayMatches() }}
-                    className="w-full py-3 rounded-xl bg-steel text-white text-sm font-medium active:scale-95 transition-all"
-                  >
-                    Play matches
-                  </button>
+                  <div className="flex flex-col gap-1">
+                    <button
+                      onClick={() => { if (!playMatchesDisabled) { setModalOpen(false); onPlayMatches() } }}
+                      disabled={playMatchesDisabled}
+                      className={`w-full py-3 rounded-xl text-sm font-medium transition-all ${
+                        playMatchesDisabled
+                          ? "bg-surface border border-white/8 text-taupe/30 cursor-default"
+                          : "bg-steel text-white active:scale-95"
+                      }`}
+                    >
+                      Play matches
+                    </button>
+                    {playMatchesDisabled && (
+                      <p className="text-taupe/40 text-xs text-center">Add at least 6 albums to unlock</p>
+                    )}
+                  </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-2">
