@@ -7,9 +7,11 @@ import RankingList from "./RankingList"
 type Props = {
   friend: FriendProfile
   onClose: () => void
+  onAddAlbum?: (album: Album) => void
+  rankedIds?: Set<string>
 }
 
-export default function FriendFullList({ friend, onClose }: Props) {
+export default function FriendFullList({ friend, onClose, onAddAlbum, rankedIds }: Props) {
   const [albums, setAlbums] = useState<Album[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -71,7 +73,13 @@ export default function FriendFullList({ friend, onClose }: Props) {
               <p className="text-taupe/50 text-sm">No albums ranked yet.</p>
             </div>
           ) : (
-            <RankingList albums={albums} getRank={id => rankMap.get(id) ?? 0} infoOnly />
+            <RankingList
+              albums={albums}
+              getRank={id => rankMap.get(id) ?? 0}
+              infoOnly={!onAddAlbum}
+              onAddAlbum={onAddAlbum ? (album) => { onAddAlbum(album); onClose() } : undefined}
+              rankedIds={rankedIds}
+            />
           )}
         </div>
       </div>

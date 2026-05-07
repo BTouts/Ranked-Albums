@@ -15,3 +15,11 @@ export function markOnboardingComplete(): void {
     // ignore
   }
 }
+
+export function resetOnboarding(): void {
+  try {
+    localStorage.removeItem(KEY)
+  } catch {
+    // ignore
+  }
+}

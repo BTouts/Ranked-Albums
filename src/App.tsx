@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from "react"
 import type { Album } from "./types/Album"
 import { supabase } from "./services/supabaseClient"
 import { searchAlbums } from "./services/musicbrainz"
-import { fetchUserRankings, saveRanking, deleteRanking } from "./services/rankingsApi"
+import { fetchUserRankings, saveRanking, deleteRanking, deleteAllRankings } from "./services/rankingsApi"
 import { fetchProfile, upsertProfile } from "./services/profilesApi"
+import { resetOnboarding } from "./utils/onboardingState"
 import { updateRatings } from "./services/elo"
 import { pickOpponent, pickRankedPlayPair } from "./services/matchmaking"
 
@@ -13,10 +14,11 @@ import Comparison from "./components/Comparison"
 import LoginForm from "./components/LoginForm"
 import ProfilePage from "./components/ProfilePage"
 import FriendsPage from "./components/FriendsPage"
+import GlobalPage from "./components/GlobalPage"
 import type { User } from "@supabase/supabase-js"
 import { fetchPendingRequests } from "./services/friendsApi"
 
-type Page = "rankings" | "search" | "friends" | "profile"
+type Page = "rankings" | "search" | "friends" | "global" | "profile"
 
 function ResetPasswordForm({ onDone }: { onDone: () => void }) {
   const [newPassword, setNewPassword] = useState("")
@@ -98,6 +100,8 @@ function App() {
 
   const resolving = useRef(false)
   const recentPlayPairs = useRef(new Set<string>())
+  const addQueue = useRef<Album[]>([])
+  const onboardingQueue = useRef(false)
 
   // Auth
   useEffect(() => {
@@ -141,17 +145,32 @@ function App() {
   const goToSearch = () => setPage("search")
 
   // Add a new album — kicks off placement matches
-  const startComparison = async (album: Album) => {
+  const startComparison = async (album: Album, returnTo: Page = "search") => {
     if (ranked.find(a => a.id === album.id)) return
-    setReturnPage("search")
+    setReturnPage(returnTo)
     const matchCount = Math.min(6, ranked.length)
     const newAlbum: Album = { ...album, rating: 1000, comparisons: 0, placementMatches: matchCount, previousOpponents: [] }
     if (ranked.length === 0) {
-      setRanked([newAlbum])
+      const withFirst = [newAlbum]
+      setRanked(withFirst)
       if (user) await saveRanking(user.id, newAlbum)
-      setPage("rankings")
-      setQuery("")
-      setResults([])
+      // If a queue is waiting, kick off the next album now rather than going to rankings
+      if (addQueue.current.length > 0) {
+        const [next, ...rest] = addQueue.current
+        addQueue.current = rest
+        const cap = onboardingQueue.current ? 2 : 6
+        const nextAlbum: Album = { ...next, rating: 1000, comparisons: 0, placementMatches: Math.min(cap, withFirst.length), previousOpponents: [] }
+        const nextOpponent = pickOpponent(nextAlbum, withFirst)
+        if (nextOpponent) {
+          setRanked([...withFirst, nextAlbum])
+          if (user) saveRanking(user.id, nextAlbum)
+          setChallenger(nextAlbum)
+          setOpponent(nextOpponent)
+          return
+        }
+      }
+      setPage(returnTo === "search" ? "rankings" : returnTo)
+      if (returnTo === "search") { setQuery(""); setResults([]) }
       return
     }
     const firstOpponent = pickOpponent(newAlbum, ranked)
@@ -160,6 +179,26 @@ function App() {
     if (user) saveRanking(user.id, newAlbum)
     setChallenger(newAlbum)
     setOpponent(firstOpponent)
+  }
+
+  // Add multiple albums from search — full placement (up to 6 matches each)
+  const startMultiAdd = (albums: Album[]) => {
+    onboardingQueue.current = false
+    const toAdd = albums.filter(a => !ranked.find(r => r.id === a.id))
+    if (toAdd.length === 0) return
+    const [first, ...rest] = toAdd
+    addQueue.current = rest
+    startComparison(first)
+  }
+
+  // Add albums from onboarding — reduced placement (up to 2 matches each) so the flow is quick
+  const startOnboardingAdd = async (albums: Album[]) => {
+    onboardingQueue.current = true
+    const toAdd = albums.filter(a => !ranked.find(r => r.id === a.id))
+    if (toAdd.length === 0) return
+    const [first, ...rest] = toAdd
+    addQueue.current = rest
+    await startComparison(first, "rankings")
   }
 
   // Re-rank an already-placed album
@@ -245,15 +284,32 @@ function App() {
 
       if (updatedChallenger.placementMatches <= 0) {
         updatedRanked = updatedRanked.sort((a, b) => b.rating - a.rating)
+        if (user) {
+          await saveRanking(user.id, updatedChallenger)
+          await saveRanking(user.id, updatedOpponent)
+        }
+        // Drain queue — start next album without navigating away
+        if (addQueue.current.length > 0) {
+          const [next, ...rest] = addQueue.current
+          addQueue.current = rest
+          const cap = onboardingQueue.current ? 2 : 6
+          const matchCount = Math.min(cap, updatedRanked.length)
+          const nextAlbum: Album = { ...next, rating: 1000, comparisons: 0, placementMatches: matchCount, previousOpponents: [] }
+          const nextOpponent = pickOpponent(nextAlbum, updatedRanked)
+          if (nextOpponent) {
+            setRanked([...updatedRanked, nextAlbum])
+            if (user) saveRanking(user.id, nextAlbum)
+            setChallenger(nextAlbum)
+            setOpponent(nextOpponent)
+            return
+          }
+        }
+        onboardingQueue.current = false
         setRanked(updatedRanked)
         setChallenger(null)
         setOpponent(null)
         setPage("rankings")
         if (returnPage === "search") { setQuery(""); setResults([]) }
-        if (user) {
-          await saveRanking(user.id, updatedChallenger)
-          await saveRanking(user.id, updatedOpponent)
-        }
         return
       }
 
@@ -289,7 +345,7 @@ function App() {
     if (rankedPlayMode) {
       recentPlayPairs.current.clear()
       setRankedPlayMode(false)
-    } else if (challenger && returnPage === "search") {
+    } else if (challenger && returnPage !== "rankings") {
       setRanked(prev => prev.filter(a => a.id !== challenger.id))
       if (user) deleteRanking(user.id, challenger.id)
     }
@@ -340,8 +396,8 @@ function App() {
 
           {/* Desktop nav — text tabs with underline active state */}
           <nav className="hidden sm:flex items-center gap-6">
-            {(["rankings", "search", "friends"] as Page[]).map(p => {
-              const labels: Record<string, string> = { rankings: "My Albums", search: "Search", friends: "Friends" }
+            {(["rankings", "search", "global", "friends"] as Page[]).map(p => {
+              const labels: Record<string, string> = { rankings: "My Albums", search: "Search", global: "Charts", friends: "Friends" }
               return (
                 <button
                   key={p}
@@ -388,6 +444,7 @@ function App() {
             onDelete={deleteAlbum}
             onStartRankedPlay={startRankedPlay}
             onGoToSearch={goToSearch}
+            onAddAlbums={startOnboardingAdd}
           />
         )}
         {page === "search" && (
@@ -396,12 +453,22 @@ function App() {
             onQueryChange={setQuery}
             results={results}
             onCompare={startComparison}
+            onAddMultiple={startMultiAdd}
+            rankedIds={new Set(ranked.map(a => a.id))}
+          />
+        )}
+        {page === "global" && (
+          <GlobalPage
+            onAddAlbum={(album) => startComparison(album, "global")}
+            rankedIds={new Set(ranked.map(a => a.id))}
           />
         )}
         {page === "friends" && (
           <FriendsPage
             user={user}
             onPendingCountChange={setPendingFriendCount}
+            onAddAlbum={(album) => startComparison(album, "friends")}
+            rankedIds={new Set(ranked.map(a => a.id))}
           />
         )}
         {page === "profile" && (
@@ -410,6 +477,12 @@ function App() {
             onBack={() => setPage("rankings")}
             onSignOut={async () => { await supabase.auth.signOut(); setUser(null) }}
             onAvatarChange={setAvatarUrl}
+            onResetData={user.email === "user@test.com" ? async () => {
+              await deleteAllRankings(user.id)
+              resetOnboarding()
+              setRanked([])
+              setPage("rankings")
+            } : undefined}
           />
         )}
       </main>
@@ -437,6 +510,19 @@ function App() {
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <span className="text-[10px] font-medium">Search</span>
+        </button>
+
+        {/* Charts */}
+        <button
+          onClick={() => setPage("global")}
+          className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 transition-colors ${page === "global" ? "text-cream" : "text-taupe/40"}`}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10" />
+            <line x1="12" y1="20" x2="12" y2="4" />
+            <line x1="6" y1="20" x2="6" y2="14" />
+          </svg>
+          <span className="text-[10px] font-medium">Charts</span>
         </button>
 
         {/* Friends */}

@@ -60,6 +60,30 @@ function toAlbum(item: ItunesResult): Album {
   }
 }
 
+export const GENRES = [
+  { label: "Pop", term: "pop" },
+  { label: "Hip-Hop", term: "hip hop rap" },
+  { label: "Rock", term: "rock" },
+  { label: "R&B / Soul", term: "r&b soul" },
+  { label: "Alternative", term: "alternative indie" },
+  { label: "Electronic", term: "electronic dance" },
+  { label: "Country", term: "country" },
+  { label: "Jazz", term: "jazz" },
+  { label: "Metal", term: "metal" },
+  { label: "Classical", term: "classical" },
+  { label: "Latin", term: "latin" },
+  { label: "Reggae", term: "reggae" },
+]
+
+export async function fetchGenreAlbums(genreTerm: string): Promise<Album[]> {
+  try {
+    const results = await itunesFetch(genreTerm)
+    return results.slice(0, 20).map(toAlbum)
+  } catch {
+    return []
+  }
+}
+
 export async function searchAlbums(query: string, signal?: AbortSignal): Promise<Album[]> {
   try {
     // Run both searches in parallel:

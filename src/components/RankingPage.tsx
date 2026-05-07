@@ -11,9 +11,10 @@ type Props = {
   onDelete?: (album: Album) => void
   onStartRankedPlay?: () => void
   onGoToSearch?: () => void
+  onAddAlbums?: (albums: Album[]) => void
 }
 
-export default function RankingPage({ albums, loading, onPlayMatches, onDelete, onStartRankedPlay, onGoToSearch }: Props) {
+export default function RankingPage({ albums, loading, onPlayMatches, onDelete, onStartRankedPlay, onGoToSearch, onAddAlbums }: Props) {
   const [decadeFilter, setDecadeFilter] = useState("All")
   const [yearFilter, setYearFilter] = useState("All")
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -74,6 +75,11 @@ export default function RankingPage({ albums, loading, onPlayMatches, onDelete, 
           markOnboardingComplete()
           setShowOnboarding(false)
         }}
+        onAddAlbums={(albums) => {
+          markOnboardingComplete()
+          setShowOnboarding(false)
+          onAddAlbums?.(albums)
+        }}
       />
     )
   }
@@ -128,20 +134,20 @@ export default function RankingPage({ albums, loading, onPlayMatches, onDelete, 
           ))}
         </div>
 
-        {/* Ghost Ranked Play button */}
+        {/* Ranked Play button */}
         {albums.length >= 2 && onStartRankedPlay && (() => {
           const locked = albums.length < 6
           return (
             <div className="group/rp relative shrink-0">
               <button
                 onClick={locked ? undefined : onStartRankedPlay}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-medium transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
                   locked
                     ? "border-white/8 text-taupe/25 cursor-default"
-                    : "border-white/15 text-taupe/70 hover:border-white/30 hover:text-cream"
+                    : "border-steel/50 text-steel hover:bg-steel/10 hover:border-steel active:scale-95"
                 }`}
               >
-                <svg width="9" height="9" viewBox="0 0 9 9" fill="currentColor">
+                <svg width="10" height="10" viewBox="0 0 9 9" fill="currentColor">
                   <polygon points="1,0 9,4.5 1,9" />
                 </svg>
                 Ranked Play

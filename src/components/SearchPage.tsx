@@ -8,18 +8,44 @@ type Props = {
   onQueryChange: (q: string) => void
   results: Album[]
   onCompare: (album: Album) => void
+  onAddMultiple?: (albums: Album[]) => void
+  rankedIds?: Set<string>
 }
 
-export default function SearchPage({ query, onQueryChange, results, onCompare }: Props) {
+export default function SearchPage({ query, onQueryChange, results, onCompare, onAddMultiple, rankedIds }: Props) {
   const [mbResults, setMbResults] = useState<Album[]>([])
   const [mbLoading, setMbLoading] = useState(false)
   const [mbSearched, setMbSearched] = useState(false)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  // Reset fallback state whenever the query changes
+  // Reset fallback state and selection whenever the query changes
   useEffect(() => {
     setMbResults([])
     setMbSearched(false)
+    setSelected(new Set())
   }, [query])
+
+  const toggleSelect = (album: Album) => {
+    if (rankedIds?.has(album.id)) return
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(album.id)) next.delete(album.id)
+      else next.add(album.id)
+      return next
+    })
+  }
+
+  const allResults = [...results, ...mbResults]
+
+  const handleAddSelected = () => {
+    const toAdd = allResults.filter(a => selected.has(a.id))
+    if (toAdd.length > 0) {
+      onAddMultiple?.(toAdd)
+      setSelectMode(false)
+      setSelected(new Set())
+    }
+  }
 
   const handleFallbackSearch = async () => {
     setMbLoading(true)
@@ -80,10 +106,46 @@ export default function SearchPage({ query, onQueryChange, results, onCompare }:
       ) : results.length === 0 ? (
         <p className="text-taupe/30 text-sm text-center mt-8">No results found.</p>
       ) : (
-        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-px bg-surface">
-          {results.map(album => (
-            <AlbumTile key={album.id} album={album} onClick={() => onCompare(album)} />
-          ))}
+        <div className="flex flex-col gap-3">
+          {/* Select multiple toggle */}
+          {onAddMultiple && (
+            <div className="flex items-center justify-end">
+              <button
+                onClick={() => { setSelectMode(s => !s); setSelected(new Set()) }}
+                className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                  selectMode
+                    ? "border-steel text-steel bg-steel/10"
+                    : "border-white/10 text-taupe/50 hover:border-white/20 hover:text-taupe"
+                }`}
+              >
+                {selectMode ? "Cancel" : "Select multiple"}
+              </button>
+            </div>
+          )}
+          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-px bg-surface">
+            {results.map(album => {
+              const added = rankedIds?.has(album.id)
+              const isSelected = selected.has(album.id)
+              return (
+                <div key={album.id} className="relative">
+                  <AlbumTile
+                    album={album}
+                    onClick={added ? undefined : selectMode ? () => toggleSelect(album) : () => onCompare(album)}
+                    isAdded={added}
+                  />
+                  {selectMode && !added && isSelected && (
+                    <div className="absolute inset-0 bg-steel/30 pointer-events-none flex items-center justify-center">
+                      <div className="w-7 h-7 rounded-full bg-steel flex items-center justify-center">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="2,6 5,9 10,3" />
+                        </svg>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -113,11 +175,42 @@ export default function SearchPage({ query, onQueryChange, results, onCompare }:
             <p className="text-taupe/30 text-sm text-center">No extended results found.</p>
           ) : (
             <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-px bg-surface">
-              {mbResults.map(album => (
-                <AlbumTile key={album.id} album={album} onClick={() => onCompare(album)} />
-              ))}
+              {mbResults.map(album => {
+                const added = rankedIds?.has(album.id)
+                const isSelected = selected.has(album.id)
+                return (
+                  <div key={album.id} className="relative">
+                    <AlbumTile
+                      album={album}
+                      onClick={added ? undefined : selectMode ? () => toggleSelect(album) : () => onCompare(album)}
+                      isAdded={added}
+                    />
+                    {selectMode && !added && isSelected && (
+                      <div className="absolute inset-0 bg-steel/30 pointer-events-none flex items-center justify-center">
+                        <div className="w-7 h-7 rounded-full bg-steel flex items-center justify-center">
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="2,6 5,9 10,3" />
+                          </svg>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Select mode sticky add bar */}
+      {selectMode && selected.size > 0 && (
+        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-40">
+          <button
+            onClick={handleAddSelected}
+            className="flex items-center gap-2 px-6 py-3 rounded-full bg-steel text-white text-sm font-medium shadow-lg hover:bg-powder active:scale-95 transition-all"
+          >
+            Add {selected.size} album{selected.size !== 1 ? "s" : ""}
+          </button>
         </div>
       )}
     </div>

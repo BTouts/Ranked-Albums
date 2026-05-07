@@ -11,6 +11,8 @@ type Props = {
   onDelete?: () => void
   infoOnly?: boolean
   playMatchesDisabled?: boolean
+  isAdded?: boolean
+  disableModal?: boolean
 }
 
 function confidence(comparisons: number) {
@@ -25,14 +27,14 @@ function streamingUrls(album: Album) {
   }
 }
 
-export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelete, infoOnly, playMatchesDisabled }: Props) {
+export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelete, infoOnly, playMatchesDisabled, isAdded, disableModal }: Props) {
   const [modalOpen, setModalOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [imgFailed, setImgFailed] = useState(false)
   const isTouch = useIsTouchDevice()
   const imgRef = useRef<HTMLImageElement>(null)
 
-  const useModal = isTouch && (!!onPlayMatches || !!onClick || !!infoOnly)
+  const useModal = isTouch && (!!onPlayMatches || !!onClick || !!infoOnly) && !isAdded && !disableModal
 
   const coverUrl = album.coverUrl
     ?? (isKnownMissing(album.id) ? null : `https://coverartarchive.org/release-group/${album.id}/front-250`)
@@ -66,8 +68,8 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelet
   return (
     <>
       <div
-        onClick={handleTileClick}
-        className="relative group aspect-square overflow-hidden bg-surface2 cursor-pointer"
+        onClick={isAdded ? undefined : handleTileClick}
+        className={`relative group aspect-square overflow-hidden bg-surface2 ${isAdded ? "cursor-default" : "cursor-pointer"}`}
       >
         {/* Cover art */}
         {coverUrl && !imgFailed && (
@@ -96,6 +98,15 @@ export default function AlbumTile({ album, rank, onClick, onPlayMatches, onDelet
         {rank !== undefined && (
           <div className="absolute top-1.5 left-1.5 bg-black/50 text-white/80 text-[10px] font-semibold px-1.5 py-0.5 rounded backdrop-blur-sm z-10">
             {rank}
+          </div>
+        )}
+
+        {/* Already-added checkmark */}
+        {isAdded && (
+          <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-steel/80 flex items-center justify-center z-10">
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="2,6 5,9 10,3" />
+            </svg>
           </div>
         )}
 

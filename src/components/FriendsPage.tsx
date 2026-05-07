@@ -18,9 +18,11 @@ import FriendFullList from "./FriendFullList"
 type Props = {
   user: User
   onPendingCountChange: (n: number) => void
+  onAddAlbum?: (album: Album) => void
+  rankedIds?: Set<string>
 }
 
-export default function FriendsPage({ user, onPendingCountChange }: Props) {
+export default function FriendsPage({ user, onPendingCountChange, onAddAlbum, rankedIds }: Props) {
   const [friends, setFriends] = useState<Friendship[]>([])
   const [pendingIncoming, setPendingIncoming] = useState<PendingRequest[]>([])
   const [sentIds, setSentIds] = useState<Set<string>>(new Set())
@@ -191,6 +193,8 @@ export default function FriendsPage({ user, onPendingCountChange }: Props) {
         <FriendFullList
           friend={viewing.friend}
           onClose={() => setViewing(null)}
+          onAddAlbum={onAddAlbum}
+          rankedIds={rankedIds}
         />
       )}
     </div>
