@@ -59,7 +59,7 @@ export default function OnboardingModal({ onGetStarted, onDismiss, onAddAlbums }
   if (step === "welcome") {
     return (
       <div
-        className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6 backdrop-enter"
+        className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-6 backdrop-enter"
         onClick={onDismiss}
       >
         <div
@@ -93,7 +93,7 @@ export default function OnboardingModal({ onGetStarted, onDismiss, onAddAlbums }
   if (step === "genres") {
     return (
       <div
-        className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6 backdrop-enter"
+        className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-6 backdrop-enter"
         onClick={onDismiss}
       >
         <div
@@ -137,7 +137,7 @@ export default function OnboardingModal({ onGetStarted, onDismiss, onAddAlbums }
   // step === "albums"
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-enter"
+      className="fixed inset-0 z-[60] bg-black/70 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-enter"
       onClick={onDismiss}
     >
       <div
@@ -179,7 +179,7 @@ export default function OnboardingModal({ onGetStarted, onDismiss, onAddAlbums }
           )}
         </div>
 
-        <div className="px-5 pt-4 pb-8 sm:py-4 border-t border-white/5 shrink-0 flex gap-3">
+        <div className="px-5 pt-4 pb-20 sm:py-4 border-t border-white/5 shrink-0 flex gap-3">
           <button
             onClick={handleAddSelected}
             className="flex-1 py-2.5 rounded-xl bg-steel text-white text-sm font-medium hover:bg-powder active:scale-95 transition-all"
