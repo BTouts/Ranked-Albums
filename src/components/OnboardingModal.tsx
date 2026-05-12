@@ -137,11 +137,11 @@ export default function OnboardingModal({ onGetStarted, onDismiss, onAddAlbums }
   // step === "albums"
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-enter"
+      className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-enter"
       onClick={onDismiss}
     >
       <div
-        className="bg-surface w-full max-w-2xl max-h-[90vh] rounded-2xl flex flex-col overflow-hidden modal-enter"
+        className="bg-surface w-full sm:max-w-2xl max-h-[90vh] rounded-t-2xl sm:rounded-2xl flex flex-col overflow-hidden modal-enter"
         onClick={e => e.stopPropagation()}
       >
         <div className="px-5 py-4 border-b border-white/5 shrink-0">
@@ -179,7 +179,7 @@ export default function OnboardingModal({ onGetStarted, onDismiss, onAddAlbums }
           )}
         </div>
 
-        <div className="px-5 py-4 border-t border-white/5 shrink-0 flex gap-3">
+        <div className="px-5 pt-4 pb-8 sm:py-4 border-t border-white/5 shrink-0 flex gap-3">
           <button
             onClick={handleAddSelected}
             className="flex-1 py-2.5 rounded-xl bg-steel text-white text-sm font-medium hover:bg-powder active:scale-95 transition-all"
