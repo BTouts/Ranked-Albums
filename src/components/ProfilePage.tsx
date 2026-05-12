@@ -8,9 +8,10 @@ type Props = {
   onSignOut: () => void
   onBack: () => void
   onAvatarChange?: (url: string | null) => void
+  onResetData?: () => Promise<void>
 }
 
-export default function ProfilePage({ user, onSignOut, onBack, onAvatarChange }: Props) {
+export default function ProfilePage({ user, onSignOut, onBack, onAvatarChange, onResetData }: Props) {
   const [displayName, setDisplayName] = useState("")
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [newPassword, setNewPassword] = useState("")
@@ -19,6 +20,8 @@ export default function ProfilePage({ user, onSignOut, onBack, onAvatarChange }:
   const [savingName, setSavingName] = useState(false)
   const [savingPassword, setSavingPassword] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
+  const [resetting, setResetting] = useState(false)
 
   const [nameMsg, setNameMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [passwordMsg, setPasswordMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -215,6 +218,43 @@ export default function ProfilePage({ user, onSignOut, onBack, onAvatarChange }:
         </button>
         <ReportBugButton />
       </div>
+
+      {/* Dev reset */}
+      {onResetData && (
+        <div className="pt-4 border-t border-white/5 flex flex-col gap-2">
+          <p className="text-taupe/30 text-[10px] tracking-widest uppercase">Developer</p>
+          {confirmReset ? (
+            <div className="flex items-center gap-3">
+              <span className="text-taupe/60 text-xs">Clear all albums and reset onboarding?</span>
+              <button
+                onClick={async () => {
+                  setResetting(true)
+                  await onResetData()
+                  setResetting(false)
+                  setConfirmReset(false)
+                }}
+                disabled={resetting}
+                className="px-3 py-1.5 rounded-lg bg-red-500/80 text-white text-xs font-medium hover:bg-red-500 transition-colors disabled:opacity-40"
+              >
+                {resetting ? "Clearing…" : "Yes, clear"}
+              </button>
+              <button
+                onClick={() => setConfirmReset(false)}
+                className="text-xs text-taupe/40 hover:text-taupe transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmReset(true)}
+              className="self-start text-xs text-taupe/30 hover:text-red-400 transition-colors"
+            >
+              Reset all data
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

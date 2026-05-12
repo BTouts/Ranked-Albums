@@ -60,7 +60,7 @@ export default function Comparison({ newAlbum, existingAlbum, onBetter, onWorse,
       <div className="flex items-start gap-3 sm:gap-6 w-full max-w-md sm:max-w-2xl">
         {/* Left album */}
         <div className="flex-1 flex flex-col gap-2">
-          <AlbumTile album={newAlbum} onClick={coversReady ? onBetter : undefined} />
+          <AlbumTile key={newAlbum.id} album={newAlbum} onClick={coversReady ? onBetter : undefined} disableModal />
           <button
             onClick={onBetter}
             disabled={!coversReady}
@@ -77,7 +77,7 @@ export default function Comparison({ newAlbum, existingAlbum, onBetter, onWorse,
 
         {/* Right album */}
         <div className="flex-1 flex flex-col gap-2">
-          <AlbumTile album={existingAlbum} onClick={coversReady ? onWorse : undefined} />
+          <AlbumTile key={existingAlbum.id} album={existingAlbum} onClick={coversReady ? onWorse : undefined} disableModal />
           <button
             onClick={onWorse}
             disabled={!coversReady}
@@ -99,9 +99,9 @@ export default function Comparison({ newAlbum, existingAlbum, onBetter, onWorse,
         </button>
         <button
           onClick={onCancel}
-          className="text-xs text-white/20 hover:text-white/50 transition-colors"
+          className="px-5 py-2 text-sm text-taupe border border-white/10 rounded-lg hover:text-cream hover:border-taupe active:scale-95 transition-all"
         >
-          {isRankedPlay ? "stop" : "cancel"}
+          {isRankedPlay ? "Stop" : "Cancel"}
         </button>
       </div>
     </div>

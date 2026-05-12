@@ -1,87 +1,196 @@
+import { useState } from "react"
+import { GENRES, fetchGenreAlbums } from "../services/musicbrainz"
+import type { Album } from "../types/Album"
+import AlbumTile from "./AlbumTile"
+
 type Props = {
   onGetStarted: () => void
   onDismiss: () => void
+  onAddAlbums: (albums: Album[]) => void
 }
 
-const steps = [
-  {
-    num: "1",
-    title: "Search",
-    desc: "Find any album by name or artist",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-      </svg>
-    ),
-  },
-  {
-    num: "2",
-    title: "Compare",
-    desc: "Pick your favorite in head-to-head matchups",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" />
-        <polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
-      </svg>
-    ),
-  },
-  {
-    num: "3",
-    title: "Ranked",
-    desc: "Your personal list, refined over time",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
-        <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
-      </svg>
-    ),
-  },
-]
+export default function OnboardingModal({ onGetStarted, onDismiss, onAddAlbums }: Props) {
+  const [step, setStep] = useState<"welcome" | "genres" | "albums">("welcome")
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([])
+  const [genreAlbums, setGenreAlbums] = useState<Album[]>([])
+  const [selectedAlbums, setSelectedAlbums] = useState<Set<string>>(new Set())
+  const [loadingAlbums, setLoadingAlbums] = useState(false)
 
-export default function OnboardingModal({ onGetStarted, onDismiss }: Props) {
+  const toggleGenre = (term: string) => {
+    setSelectedGenres(prev =>
+      prev.includes(term) ? prev.filter(g => g !== term) : [...prev, term]
+    )
+  }
+
+  const toggleAlbum = (album: Album) => {
+    setSelectedAlbums(prev => {
+      const next = new Set(prev)
+      if (next.has(album.id)) next.delete(album.id)
+      else next.add(album.id)
+      return next
+    })
+  }
+
+  const handleGenreNext = async () => {
+    if (selectedGenres.length === 0) { onGetStarted(); return }
+    setLoadingAlbums(true)
+    setStep("albums")
+    try {
+      const results = await Promise.all(selectedGenres.map(term => fetchGenreAlbums(term)))
+      const seen = new Set<string>()
+      const merged: Album[] = []
+      for (const list of results) {
+        for (const album of list) {
+          if (!seen.has(album.id)) { seen.add(album.id); merged.push(album) }
+        }
+      }
+      setGenreAlbums(merged.slice(0, 30))
+    } finally {
+      setLoadingAlbums(false)
+    }
+  }
+
+  const handleAddSelected = () => {
+    const toAdd = genreAlbums.filter(a => selectedAlbums.has(a.id))
+    if (toAdd.length > 0) onAddAlbums(toAdd)
+    else onGetStarted()
+  }
+
+  if (step === "welcome") {
+    return (
+      <div
+        className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-6 backdrop-enter"
+        onClick={onDismiss}
+      >
+        <div
+          className="bg-surface w-full max-w-sm rounded-2xl p-6 flex flex-col gap-6 modal-enter"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex flex-col gap-1">
+            <h2 className="text-cream text-lg font-semibold">Welcome to Album Ranker</h2>
+            <p className="text-taupe/60 text-sm">Rank your favorite albums head-to-head and build your personal list.</p>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => setStep("genres")}
+              className="w-full py-2.5 rounded-xl bg-steel text-white text-sm font-medium hover:bg-powder active:scale-95 transition-all"
+            >
+              Pick my genres
+            </button>
+            <button
+              onClick={onGetStarted}
+              className="text-xs text-taupe/40 hover:text-taupe/60 transition-colors text-center py-1"
+            >
+              I'll search manually
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (step === "genres") {
+    return (
+      <div
+        className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-6 backdrop-enter"
+        onClick={onDismiss}
+      >
+        <div
+          className="bg-surface w-full max-w-sm rounded-2xl p-6 flex flex-col gap-6 modal-enter"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex flex-col gap-1">
+            <h2 className="text-cream text-lg font-semibold">What do you listen to?</h2>
+            <p className="text-taupe/60 text-sm">Pick genres to see popular albums you might know.</p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {GENRES.map(g => (
+              <button
+                key={g.term}
+                onClick={() => toggleGenre(g.term)}
+                className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                  selectedGenres.includes(g.term)
+                    ? "bg-steel text-white border-steel"
+                    : "border-white/15 text-taupe/70 hover:border-white/30 hover:text-cream"
+                }`}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={handleGenreNext}
+              className="w-full py-2.5 rounded-xl bg-steel text-white text-sm font-medium hover:bg-powder active:scale-95 transition-all"
+            >
+              {selectedGenres.length === 0 ? "Skip" : "See albums →"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // step === "albums"
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6 backdrop-enter"
+      className="fixed inset-0 z-[60] bg-black/70 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-enter"
       onClick={onDismiss}
     >
       <div
-        className="bg-surface w-full max-w-sm rounded-2xl p-6 flex flex-col gap-6 modal-enter"
+        className="bg-surface w-full sm:max-w-2xl max-h-[90vh] rounded-t-2xl sm:rounded-2xl flex flex-col overflow-hidden modal-enter"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex flex-col gap-1">
-          <h2 className="text-cream text-lg font-semibold">Welcome to Album Ranker</h2>
-          <p className="text-taupe/60 text-sm">Here's how it works</p>
+        <div className="px-5 py-4 border-b border-white/5 shrink-0">
+          <h2 className="text-cream font-semibold text-base">Recognize any of these?</h2>
+          <p className="text-taupe/50 text-xs mt-0.5">Tap albums you've listened to — they'll be added to your list.</p>
         </div>
 
-        {/* Steps */}
-        <div className="flex flex-col gap-4">
-          {steps.map(step => (
-            <div key={step.num} className="flex items-start gap-4">
-              <div className="shrink-0 w-9 h-9 rounded-xl bg-steel/15 text-steel flex items-center justify-center">
-                {step.icon}
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-cream text-sm font-medium">{step.title}</span>
-                <span className="text-taupe/60 text-xs">{step.desc}</span>
-              </div>
+        <div className="overflow-y-auto flex-1">
+          {loadingAlbums ? (
+            <div className="grid grid-cols-4 sm:grid-cols-5 gap-px bg-surface2">
+              {Array.from({ length: 20 }).map((_, i) => (
+                <div key={i} className="aspect-square bg-surface animate-pulse" />
+              ))}
             </div>
-          ))}
+          ) : (
+            <div className="grid grid-cols-4 sm:grid-cols-5 gap-px bg-surface2">
+              {genreAlbums.map(album => (
+                <div key={album.id} className="relative">
+                  <AlbumTile
+                    album={album}
+                    onClick={() => toggleAlbum(album)}
+                  />
+                  {selectedAlbums.has(album.id) && (
+                    <div className="absolute inset-0 bg-steel/30 pointer-events-none flex items-center justify-center">
+                      <div className="w-7 h-7 rounded-full bg-steel flex items-center justify-center">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="2,6 5,9 10,3" />
+                        </svg>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Actions */}
-        <div className="flex flex-col gap-2">
+        <div className="px-5 pt-4 pb-20 sm:py-4 border-t border-white/5 shrink-0 flex gap-3">
           <button
-            onClick={onGetStarted}
-            className="w-full py-2.5 rounded-xl bg-steel text-white text-sm font-medium hover:bg-powder active:scale-95 transition-all"
+            onClick={handleAddSelected}
+            className="flex-1 py-2.5 rounded-xl bg-steel text-white text-sm font-medium hover:bg-powder active:scale-95 transition-all"
           >
-            Get Started
+            {selectedAlbums.size > 0 ? `Add ${selectedAlbums.size} album${selectedAlbums.size !== 1 ? "s" : ""}` : "Skip"}
           </button>
           <button
-            onClick={onDismiss}
-            className="text-xs text-taupe/40 hover:text-taupe/60 transition-colors text-center py-1"
+            onClick={onGetStarted}
+            className="px-4 py-2.5 rounded-xl border border-white/10 text-taupe text-sm hover:text-cream hover:border-white/20 transition-colors"
           >
-            Skip
+            Search manually
           </button>
         </div>
       </div>

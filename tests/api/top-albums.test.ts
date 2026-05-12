@@ -5,8 +5,11 @@ const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY ?? ""
 const AUTH_URL = `${BASE_URL}/auth/v1/token?grant_type=password`
 const API_URL = `${BASE_URL}/functions/v1/top-albums`
 
-const TEST_EMAIL = process.env.E2E_USER_EMAIL ?? "user@test.com"
-const TEST_PASSWORD = process.env.E2E_USER_PASSWORD ?? "test1234"
+const TEST_EMAIL = process.env.E2E_USER_EMAIL
+const TEST_PASSWORD = process.env.E2E_USER_PASSWORD
+if (!TEST_EMAIL || !TEST_PASSWORD) {
+  throw new Error("E2E_USER_EMAIL and E2E_USER_PASSWORD env vars are required to run API tests")
+}
 
 async function authenticate(): Promise<string> {
   const res = await fetch(AUTH_URL, {

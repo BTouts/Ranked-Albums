@@ -1,31 +1,6 @@
 import { supabase } from "./supabaseClient"
 import type { Album } from "../types/Album"
 
-/**
- * Attempts to find cover art for albums that have no cover_url (typically MusicBrainz albums).
- * Runs in the background — never blocks the UI.
- * Only tries MusicBrainz UUIDs; iTunes numeric IDs aren't in Cover Art Archive.
- * If art is found, updates the shared albums table so all users benefit.
- */
-async function tryBackfillCoverArt(albumId: string): Promise<void> {
-  const isMusicBrainzId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(albumId)
-  if (!isMusicBrainzId) return
-
-  try {
-    const url = `https://coverartarchive.org/release-group/${albumId}/front-500`
-    // Follow redirects so we store the final archive.org URL — no redirect overhead on future loads
-    const res = await fetch(url, { method: "HEAD" })
-    if (!res.ok) return
-    const resolvedUrl = res.url || url
-    await supabase
-      .from("albums")
-      .update({ cover_url: resolvedUrl })
-      .eq("id", albumId)
-      .is("cover_url", null)
-  } catch {
-    // Cover art is nice-to-have — fail silently
-  }
-}
 
 export async function fetchUserRankings(userId: string): Promise<Album[]> {
   const { data, error } = await supabase
@@ -62,10 +37,6 @@ export async function fetchUserRankings(userId: string): Promise<Album[]> {
     }
   })
 
-  // Background: try to fill in cover art for albums that are missing it.
-  // Caps at 5 per load to avoid hammering Cover Art Archive.
-  result.filter(a => !a.coverUrl).slice(0, 5).forEach(a => tryBackfillCoverArt(a.id))
-
   return result
 }
 
@@ -82,13 +53,10 @@ export async function saveRanking(userId: string, album: Album) {
         year: album.year,
         cover_url: album.coverUrl ?? null,
       },
-      { onConflict: "id" }
+      { onConflict: "id", ignoreDuplicates: true }
     )
 
   if (albumError) console.error("Album upsert error:", albumError)
-
-  // Background: if no cover URL was stored, try to find one from Cover Art Archive
-  if (!album.coverUrl) tryBackfillCoverArt(album.id)
 
   const { error: rankingError } = await supabase
     .from("rankings")
@@ -104,6 +72,73 @@ export async function saveRanking(userId: string, album: Album) {
     )
 
   if (rankingError) console.error("Ranking upsert error:", rankingError)
+}
+
+export type GlobalAlbum = Album & { rankedBy: number }
+
+export async function fetchGlobalRankings(): Promise<GlobalAlbum[]> {
+  const { data, error } = await supabase
+    .from("rankings")
+    .select(`
+      user_id,
+      album_id,
+      rating,
+      albums!inner (id, title, artist, year, cover_url)
+    `)
+
+  if (error) throw error
+  if (!data) return []
+
+  // Group each user's albums so we can compute rank-within-user
+  const byUser = new Map<string, { album_id: string; rating: number; meta: any }[]>()
+  for (const row of data as any[]) {
+    const list = byUser.get(row.user_id) ?? []
+    list.push({ album_id: row.album_id, rating: row.rating, meta: row.albums })
+    byUser.set(row.user_id, list)
+  }
+
+  // For each user sort by rating desc, assign percentile 1.0 (top) → 0.0 (bottom)
+  const albumPercentiles = new Map<string, { percentiles: number[]; meta: any }>()
+  for (const userAlbums of byUser.values()) {
+    const sorted = [...userAlbums].sort((a, b) => b.rating - a.rating)
+    const n = sorted.length
+    sorted.forEach((item, index) => {
+      const percentile = n === 1 ? 1.0 : 1 - index / (n - 1)
+      const entry = albumPercentiles.get(item.album_id)
+      if (entry) {
+        entry.percentiles.push(percentile)
+      } else {
+        albumPercentiles.set(item.album_id, { percentiles: [percentile], meta: item.meta })
+      }
+    })
+  }
+
+  return Array.from(albumPercentiles.entries())
+    .filter(([, v]) => v.percentiles.length >= 2)
+    .map(([albumId, v]) => {
+      const avg = v.percentiles.reduce((a, b) => a + b, 0) / v.percentiles.length
+      return {
+        id: albumId,
+        title: v.meta?.title ?? "Unknown",
+        artist: v.meta?.artist ?? "Unknown",
+        year: v.meta?.year,
+        coverUrl: v.meta?.cover_url ?? undefined,
+        rating: avg,
+        comparisons: 0,
+        placementMatches: 0,
+        previousOpponents: [],
+        rankedBy: v.percentiles.length,
+      }
+    })
+    .sort((a, b) => b.rating - a.rating)
+}
+
+export async function deleteAllRankings(userId: string) {
+  const { error } = await supabase
+    .from("rankings")
+    .delete()
+    .eq("user_id", userId)
+  if (error) throw error
 }
 
 export async function deleteRanking(userId: string, albumId: string) {

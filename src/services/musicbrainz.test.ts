@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { searchAlbums, searchAlbumsFallback } from "./musicbrainz"
+import { searchAlbums, searchAlbumsFallback, fetchGenreAlbums, GENRES } from "./musicbrainz"
 
 function itunesResult(overrides: Partial<{
   collectionId: number
@@ -177,5 +177,93 @@ describe("searchAlbumsFallback", () => {
     })))
     const results = await searchAlbumsFallback("test")
     expect(results).toEqual([])
+  })
+})
+
+describe("fetchGenreAlbums", () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it("returns mapped albums for a genre term", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        results: [itunesResult({ collectionId: 1, collectionName: "Genre Hit", artistName: "Pop Artist" })],
+      }),
+    })))
+    const results = await fetchGenreAlbums("pop")
+    expect(results.length).toBeGreaterThan(0)
+    expect(results[0].title).toBe("Genre Hit")
+    expect(results[0].artist).toBe("Pop Artist")
+  })
+
+  it("returns at most 20 albums", async () => {
+    const manyResults = Array.from({ length: 50 }, (_, i) =>
+      itunesResult({ collectionId: i + 1, collectionName: `Album ${i}` })
+    )
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ results: manyResults }),
+    })))
+    const results = await fetchGenreAlbums("rock")
+    expect(results.length).toBeLessThanOrEqual(20)
+  })
+
+  it("upgrades artwork URL to 600x600", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        results: [itunesResult({ artworkUrl100: "https://cdn.example.com/100x100bb.jpg" })],
+      }),
+    })))
+    const results = await fetchGenreAlbums("jazz")
+    expect(results[0].coverUrl).toContain("600x600bb")
+  })
+
+  it("filters out releases with fewer than 5 tracks", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        results: [
+          itunesResult({ collectionId: 1, trackCount: 3 }),
+          itunesResult({ collectionId: 2, trackCount: 10 }),
+        ],
+      }),
+    })))
+    const results = await fetchGenreAlbums("pop")
+    expect(results).toHaveLength(1)
+  })
+
+  it("returns empty array on fetch error", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("network error") }))
+    const results = await fetchGenreAlbums("hip hop")
+    expect(results).toEqual([])
+  })
+
+  it("returns empty array when iTunes results is empty", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ results: [] }),
+    })))
+    const results = await fetchGenreAlbums("obscure genre")
+    expect(results).toEqual([])
+  })
+})
+
+describe("GENRES", () => {
+  it("each genre has a non-empty label and term", () => {
+    for (const genre of GENRES) {
+      expect(genre.label.length).toBeGreaterThan(0)
+      expect(genre.term.length).toBeGreaterThan(0)
+    }
+  })
+
+  it("has no duplicate terms", () => {
+    const terms = GENRES.map(g => g.term)
+    expect(new Set(terms).size).toBe(terms.length)
+  })
+
+  it("has no duplicate labels", () => {
+    const labels = GENRES.map(g => g.label)
+    expect(new Set(labels).size).toBe(labels.length)
   })
 })
